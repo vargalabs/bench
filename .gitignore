@@ -13,7 +13,14 @@
 *.prof
 *.csv
 *.json
+*.svg
 report.*
+# committed documentation image (kept despite the *.svg ignore above)
+!/doxy/images/*.svg
+
+# generated Doxygen output / logs
+doxy/docs/doxygen/
+doxy/*.log
 
 # editor / OS
 .theia/
