@@ -28,6 +28,46 @@ int main() {
 This produces one measured row per `(type, size)` pair, with mean/stddev for
 runtime and throughput.
 
+## Features
+
+- **Engine** — a single timing loop (warmup + sampled runs, mean/stddev for
+  runtime and throughput) driven by `bench::throughput(...)`. The body returns
+  the bytes it moved; the engine reports MiB/s. Order-independent named args:
+  `bench::name`, `bench::arg_x` (size sweep), `bench::warmup`, `bench::sample`,
+  and the untimed/timed hooks `bench::before_sample` / `bench::after_sample`.
+- **Type-axis dispatch** — the headline feature. `bench::throughput(`
+  `bench::types<Ts...>{}, ...)` folds the *same* generic-lambda body over a
+  compile-time type list, each fully specialized, yielding one row per
+  `(type, size)` (rows named `"<name>/<typelabel>"`).
+- **Sinks** — results flow through a pluggable `bench::sink`. The default
+  `bench::stdout_sink` prints a table; opt-in `bench::csv_sink` and
+  `bench::json_sink` (in `<bench/sink/csv.hpp>` / `<bench/sink/json.hpp>`, not
+  pulled in by `<bench/all>`) emit CSV/JSON to any `std::ostream`. Swap the
+  active sink with `bench::set_sink(...)`; the in-memory store also replays all
+  rows via `bench::store_t::get().results()`.
+- **Util** — `bench::util::get_test_data<T>(count, seed, width)` returns a
+  deterministic `std::vector<T>` (arithmetic types and `std::string`) so
+  benchmark inputs are byte-reproducible across runs.
+
+## Examples
+
+Self-contained, runnable programs live in [`examples/`](examples/) and build by
+default (toggle with `-DBENCH_BUILD_EXAMPLES=OFF`):
+
+| Example | Shows |
+| --- | --- |
+| `memcpy_bandwidth.cpp` | scalar `throughput` over an `arg_x` size sweep; default stdout table |
+| `type_dispatch.cpp` | `bench::types<...>` running one body across several element types, fed by `get_test_data<T>` |
+| `sinks.cpp` | emitting results to CSV and JSON via `csv_sink` / `json_sink` and `set_sink(...)` |
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+./build/examples/memcpy_bandwidth
+./build/examples/type_dispatch
+./build/examples/sinks
+```
+
 ## Status
 
 Green-field. Seeded from an HDF5-coupled proof-of-concept and being decoupled
