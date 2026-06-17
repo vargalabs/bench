@@ -1,0 +1,11 @@
+/* Copyright (c) 2026 Steven Varga, Toronto, ON, Canada
+ * MIT License — see LICENSE
+ *
+ * Umbrella include for the dependency-free core.
+ */
+#ifndef BENCH_ALL
+#define BENCH_ALL
+	#include "meta.hpp"
+	#include "bench.hpp"
+	#include "util.hpp"
+#endif
