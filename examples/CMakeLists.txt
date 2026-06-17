@@ -23,3 +23,11 @@ set_target_properties(example_sinks PROPERTIES OUTPUT_NAME sinks)
 add_executable(example_heatmap heatmap.cpp)
 target_link_libraries(example_heatmap PRIVATE bench::bench)
 set_target_properties(example_heatmap PROPERTIES OUTPUT_NAME heatmap)
+
+add_executable(example_line_chart line_chart.cpp)
+target_link_libraries(example_line_chart PRIVATE bench::bench)
+set_target_properties(example_line_chart PROPERTIES OUTPUT_NAME line_chart)
+
+add_executable(example_scatter scatter.cpp)
+target_link_libraries(example_scatter PRIVATE bench::bench)
+set_target_properties(example_scatter PROPERTIES OUTPUT_NAME scatter)

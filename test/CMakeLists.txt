@@ -17,3 +17,7 @@ add_test(NAME sinks COMMAND sinks)
 add_executable(svg svg.cpp)
 target_link_libraries(svg PRIVATE bench)
 add_test(NAME svg COMMAND svg)
+
+add_executable(plot_gr plot_gr.cpp)
+target_link_libraries(plot_gr PRIVATE bench)
+add_test(NAME plot_gr COMMAND plot_gr)
