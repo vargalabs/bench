@@ -10,12 +10,12 @@ fully specialized, no type erasure — crossed with runtime parameter sweeps.
 
 ```cpp
 #include <bench/all>
+#include <tuple>
 
 int main() {
   bench::arg_x record_size{10'000, 100'000, 1'000'000};
 
-  bench::throughput(
-    bench::types<int, double, float>{},      // compile-time type axis
+  bench::throughput<std::tuple<int, double, float>>(  // compile-time type axis
     bench::name{"write"}, record_size,        // named args, any order
     bench::warmup{3}, bench::sample{10},
     [&]<class T>(std::size_t idx, std::size_t n) -> double {
@@ -35,10 +35,11 @@ runtime and throughput.
   the bytes it moved; the engine reports MiB/s. Order-independent named args:
   `bench::name`, `bench::arg_x` (size sweep), `bench::warmup`, `bench::sample`,
   and the untimed/timed hooks `bench::before_sample` / `bench::after_sample`.
-- **Type-axis dispatch** — the headline feature. `bench::throughput(`
-  `bench::types<Ts...>{}, ...)` folds the *same* generic-lambda body over a
-  compile-time type list, each fully specialized, yielding one row per
-  `(type, size)` (rows named `"<name>/<typelabel>"`).
+- **Type-axis dispatch** — the headline feature. `bench::throughput<`
+  `std::tuple<Ts...>>(...)` folds the *same* generic-lambda body over a
+  compile-time type list passed as an explicit template argument, each fully
+  specialized, yielding one row per `(type, size)` (rows named
+  `"<name>/<typelabel>"`).
 - **Sinks** — results flow through a pluggable `bench::sink`. The default
   `bench::stdout_sink` prints a table; opt-in `bench::csv_sink` and
   `bench::json_sink` (in `<bench/sink/csv.hpp>` / `<bench/sink/json.hpp>`, not
@@ -57,7 +58,7 @@ default (toggle with `-DBENCH_BUILD_EXAMPLES=OFF`):
 | Example | Shows |
 | --- | --- |
 | `memcpy_bandwidth.cpp` | scalar `throughput` over an `arg_x` size sweep; default stdout table |
-| `type_dispatch.cpp` | `bench::types<...>` running one body across several element types, fed by `get_test_data<T>` |
+| `type_dispatch.cpp` | `bench::throughput<std::tuple<...>>` running one body across several element types, fed by `get_test_data<T>` |
 | `sinks.cpp` | emitting results to CSV and JSON via `csv_sink` / `json_sink` and `set_sink(...)` |
 
 ```sh

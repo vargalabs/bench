@@ -17,6 +17,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <tuple>
 #include <vector>
 
 int main() {
@@ -24,9 +25,8 @@ int main() {
 	// so each type reports the bytes it actually moves.
 	bench::arg_x counts{ 1'000, 100'000, 1'000'000 };
 
-	bench::throughput(
-		// the compile-time type axis: one row-group per type
-		bench::types<std::uint8_t, std::uint32_t, double>{},
+	// the compile-time type axis: one row-group per type
+	bench::throughput<std::tuple<std::uint8_t, std::uint32_t, double>>(
 		bench::name{"sum"},
 		counts,
 		bench::warmup{3}, bench::sample{20},

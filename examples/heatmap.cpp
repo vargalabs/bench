@@ -13,6 +13,7 @@
 #include <vector>
 #include <cstddef>
 #include <memory>
+#include <tuple>
 
 int main(){
 	// colour each (type, size) cell by mean throughput; write report.svg.
@@ -22,8 +23,7 @@ int main(){
 
 	std::vector<unsigned char> buf(1'000'000 * sizeof(double), 1);
 
-	bench::throughput(
-		bench::types<int, float, double>{},
+	bench::throughput<std::tuple<int, float, double>>(
 		bench::name{"sum"},
 		sizes,
 		bench::warmup{2}, bench::sample{10},
