@@ -1,12 +1,23 @@
 # bench
 
-A small, header-only C++ micro-benchmark library with **order-independent named
-arguments** and **compile-time type-axis dispatch**.
+> Header-only C++ micro-benchmark library with compile-time type-axis dispatch.
 
-`bench` is dependency-free: the core has no I/O, framework, or third-party
-requirement. Its distinguishing feature is a `static_for`-based dispatch engine
-that runs the *same* benchmark body across a compile-time list of types — each
-fully specialized, no type erasure — crossed with runtime parameter sweeps.
+[![CI](https://github.com/vargalabs/bench/actions/workflows/ci.yml/badge.svg)](https://github.com/vargalabs/bench/actions/workflows/ci.yml)
+[![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-stable-blue)](https://vargalabs.github.io/bench/)
+
+| OS / Compiler | GCC 13        | GCC 14        | Clang 18     | Clang 20     | Apple Clang | MSVC         |
+|---------------|---------------|---------------|--------------|--------------|-------------|--------------|
+| Ubuntu 22.04  | ![gcc13][200] | ![NA][NA]     | ![cl18][201] | ![NA][NA]    | ![NA][NA]   | ![NA][NA]    |
+| Ubuntu 24.04  | ![NA][NA]     | ![gcc14][300] | ![NA][NA]    | ![cl20][301] | ![NA][NA]   | ![NA][NA]    |
+| macOS 15      | ![NA][NA]     | ![NA][NA]     | ![NA][NA]    | ![NA][NA]    | ![ac][400]  | ![NA][NA]    |
+| Windows       | ![NA][NA]     | ![NA][NA]     | ![NA][NA]    | ![NA][NA]    | ![NA][NA]   | ![msvc][500] |
+
+> Note: the badge images and the documentation link are served from GitHub
+> Pages. As `bench` is a private repository, those URLs only resolve once Pages
+> is enabled for it (Settings → Pages → deploy from the `gh-pages` branch).
+
+## Quick start
 
 ```cpp
 #include <bench/all>
@@ -15,40 +26,57 @@ fully specialized, no type erasure — crossed with runtime parameter sweeps.
 int main() {
   bench::arg_x record_size{10'000, 100'000, 1'000'000};
 
-  bench::throughput<std::tuple<int, double, float>>(  // compile-time type axis
-    bench::name{"write"}, record_size,        // named args, any order
+  // one compile-time type axis, crossed with a runtime size sweep
+  bench::throughput<std::tuple<int, double, float>>(
+    bench::name{"write"}, record_size,           // named args, any order
     bench::warmup{3}, bench::sample{10},
     [&]<class T>(std::size_t idx, std::size_t n) -> double {
       // ... do work for n elements of T ...
-      return n * sizeof(T);                   // bytes moved -> throughput
+      return n * sizeof(T);                       // bytes moved -> throughput
     });
 }
 ```
 
-This produces one measured row per `(type, size)` pair, with mean/stddev for
-runtime and throughput.
+One measured row per `(type, size)` pair, with mean/stddev for runtime and
+throughput.
 
 ## Features
 
-- **Engine** — a single timing loop (warmup + sampled runs, mean/stddev for
-  runtime and throughput) driven by `bench::throughput(...)`. The body returns
-  the bytes it moved; the engine reports MiB/s. Order-independent named args:
-  `bench::name`, `bench::arg_x` (size sweep), `bench::warmup`, `bench::sample`,
-  and the untimed/timed hooks `bench::before_sample` / `bench::after_sample`.
-- **Type-axis dispatch** — the headline feature. `bench::throughput<`
-  `std::tuple<Ts...>>(...)` folds the *same* generic-lambda body over a
-  compile-time type list passed as an explicit template argument, each fully
-  specialized, yielding one row per `(type, size)` (rows named
-  `"<name>/<typelabel>"`).
-- **Sinks** — results flow through a pluggable `bench::sink`. The default
-  `bench::stdout_sink` prints a table; opt-in `bench::csv_sink` and
-  `bench::json_sink` (in `<bench/sink/csv.hpp>` / `<bench/sink/json.hpp>`, not
-  pulled in by `<bench/all>`) emit CSV/JSON to any `std::ostream`. Swap the
-  active sink with `bench::set_sink(...)`; the in-memory store also replays all
-  rows via `bench::store_t::get().results()`.
-- **Util** — `bench::util::get_test_data<T>(count, seed, width)` returns a
-  deterministic `std::vector<T>` (arithmetic types and `std::string`) so
-  benchmark inputs are byte-reproducible across runs.
+- **Compile-time type-axis dispatch** — `bench::throughput<std::tuple<Ts...>>`
+  folds the *same* generic-lambda body over a compile-time type list via
+  `static_for`, each type fully specialized (no type erasure), yielding one row
+  per `(type, size)`.
+- **Order-independent named args** — `bench::name`, `bench::arg_x` (size sweep),
+  `bench::warmup`, `bench::sample`, and the `bench::before_sample` /
+  `bench::after_sample` hooks may be passed in any order.
+- **Pluggable sinks** — the default `bench::stdout_sink` prints a table; opt-in
+  `bench::csv_sink` and `bench::json_sink` emit to any `std::ostream`, and the
+  opt-in `bench::svg_sink` renders heatmaps via the external `plot` library.
+  Swap with `bench::set_sink(...)`.
+- **Dependency-free core** — no HDF5, zlib, or boost; just a C++23 toolchain.
+
+## Build & install
+
+`bench` is header-only — copy `include/bench` onto your include path, or consume
+it via CMake:
+
+```cmake
+find_package(bench REQUIRED)
+target_link_libraries(my_app PRIVATE bench::bench)
+```
+
+Build the tests and examples from source:
+
+```bash
+git clone https://github.com/vargalabs/bench.git
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBENCH_BUILD_TESTS=ON -DBENCH_BUILD_EXAMPLES=ON
+cmake --build build -j
+ctest --test-dir build --output-on-failure
+```
+
+The opt-in `bench::svg_sink` needs the external `plot` library
+(`vargalabs/plots`) via `find_package(plot)`. When `plot` is absent the SVG
+example/test auto-skip and the core still builds, configures, and tests cleanly.
 
 ## Examples
 
@@ -57,23 +85,31 @@ default (toggle with `-DBENCH_BUILD_EXAMPLES=OFF`):
 
 | Example | Shows |
 | --- | --- |
-| `memcpy_bandwidth.cpp` | scalar `throughput` over an `arg_x` size sweep; default stdout table |
-| `type_dispatch.cpp` | `bench::throughput<std::tuple<...>>` running one body across several element types, fed by `get_test_data<T>` |
-| `sinks.cpp` | emitting results to CSV and JSON via `csv_sink` / `json_sink` and `set_sink(...)` |
+| `memcpy_bandwidth` | scalar `throughput` over an `arg_x` size sweep; default stdout table |
+| `type_dispatch` | `bench::throughput<std::tuple<...>>` running one body across several element types |
+| `sinks` | emitting results to CSV and JSON via `csv_sink` / `json_sink` and `set_sink(...)` |
+| `svg_sink` | rendering a throughput heatmap via the opt-in `plot`-backed SVG sink |
 
-```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
-./build/examples/memcpy_bandwidth
-./build/examples/type_dispatch
-./build/examples/sinks
-```
+## Documentation
 
-## Status
-
-Green-field. Seeded from an HDF5-coupled proof-of-concept and being decoupled
-into a general-purpose tool. See open issues for the active lanes.
+Full API reference and examples: [vargalabs.github.io/bench](https://vargalabs.github.io/bench/)
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+[NA]: https://vargalabs.github.io/bench/badges/na.svg
+
+<!-- Ubuntu 22.04 -->
+[200]: https://vargalabs.github.io/bench/badges/ubuntu-22.04-gcc-13.svg
+[201]: https://vargalabs.github.io/bench/badges/ubuntu-22.04-clang-18.svg
+
+<!-- Ubuntu 24.04 -->
+[300]: https://vargalabs.github.io/bench/badges/ubuntu-24.04-gcc-14.svg
+[301]: https://vargalabs.github.io/bench/badges/ubuntu-24.04-clang-20.svg
+
+<!-- macOS 15 -->
+[400]: https://vargalabs.github.io/bench/badges/macos-15-apple-clang.svg
+
+<!-- Windows -->
+[500]: https://vargalabs.github.io/bench/badges/windows-latest-msvc.svg
