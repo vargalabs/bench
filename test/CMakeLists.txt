@@ -13,3 +13,7 @@ add_test(NAME util COMMAND util)
 add_executable(sinks sinks.cpp)
 target_link_libraries(sinks PRIVATE bench)
 add_test(NAME sinks COMMAND sinks)
+
+add_executable(svg svg.cpp)
+target_link_libraries(svg PRIVATE bench)
+add_test(NAME svg COMMAND svg)

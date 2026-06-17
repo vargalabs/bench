@@ -21,6 +21,11 @@ if(BENCH_BUILD_TESTS)
 	add_subdirectory(test)
 endif()
 
+option(BENCH_BUILD_EXAMPLES "Build examples (e.g. the svg_sink heatmap demo)" OFF)
+if(BENCH_BUILD_EXAMPLES)
+	add_subdirectory(examples)
+endif()
+
 include(GNUInstallDirs)
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(TARGETS bench EXPORT bench-targets
