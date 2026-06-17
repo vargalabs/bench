@@ -23,5 +23,36 @@ endif()
 
 include(GNUInstallDirs)
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-install(TARGETS bench EXPORT bench-targets)
-# package config / version files are added by the CI + packaging lane.
+install(TARGETS bench EXPORT bench-targets
+	INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+# package config / version files
+include(CMakePackageConfigHelpers)
+
+set(BENCH_INSTALL_CMAKEDIR ${CMAKE_INSTALL_DATADIR}/cmake/bench)
+
+configure_package_config_file(
+	${CMAKE_CURRENT_SOURCE_DIR}/cmake/bench-config.cmake.in
+	${CMAKE_CURRENT_BINARY_DIR}/bench-config.cmake
+	INSTALL_DESTINATION ${BENCH_INSTALL_CMAKEDIR}
+)
+
+write_basic_package_version_file(
+	${CMAKE_CURRENT_BINARY_DIR}/bench-config-version.cmake
+	VERSION ${PROJECT_VERSION}
+	COMPATIBILITY AnyNewerVersion
+	ARCH_INDEPENDENT
+)
+
+install(EXPORT bench-targets
+	FILE bench-targets.cmake
+	NAMESPACE bench::
+	DESTINATION ${BENCH_INSTALL_CMAKEDIR}
+)
+
+install(FILES
+	${CMAKE_CURRENT_BINARY_DIR}/bench-config.cmake
+	${CMAKE_CURRENT_BINARY_DIR}/bench-config-version.cmake
+	DESTINATION ${BENCH_INSTALL_CMAKEDIR}
+)
