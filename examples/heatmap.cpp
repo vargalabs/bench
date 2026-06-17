@@ -1,42 +1,50 @@
 /* Copyright (c) 2026 Steven Varga, Toronto, ON, Canada
  * MIT License — see LICENSE
  *
- * Demonstrates the opt-in bench::svg_sink: run a small type-dispatch throughput
- * benchmark over <int, float, double> across a few sizes, install the SVG sink,
- * and emit a continuous-gradient heatmap to report.svg at program exit.
+ * GR.jl-style heatmap: a synthetic throughput field (MB/s) over a payload-size ×
+ * thread-count grid, rendered with the Solarized dark theme's continuous
+ * blue->yellow->red gradient. Each cell carries its value as an SVG <title>
+ * (hover tooltip). Writes heatmap.svg — open it in a browser.
  *
- * Build with -DBENCH_BUILD_EXAMPLES=ON; run, then open report.svg in a browser.
+ * Build with -DBENCH_BUILD_EXAMPLES=ON; run; open heatmap.svg.
+ * (For the benchmark-driven heatmap via bench::svg_sink, see svg_sink.cpp.)
  */
-#include <bench/all>
-#include <bench/sink/svg.hpp>
+#include <plot/all>
 
 #include <vector>
+#include <string>
+#include <cmath>
 #include <cstddef>
-#include <memory>
-#include <tuple>
 
 int main(){
-	// colour each (type, size) cell by mean throughput; write report.svg.
-	bench::set_sink(std::make_shared<bench::svg_sink>("report.svg"));
+	plot::theme(plot::solarized_dark);   // per-call override also via plot::use{...}
 
-	bench::arg_x sizes{1'000, 10'000, 100'000, 1'000'000};
+	// axes: payload sizes (columns) and thread counts (rows).
+	std::vector<std::string> sizes  { "1K", "4K", "16K", "64K", "256K", "1M" };
+	std::vector<std::string> threads{ "1", "2", "4", "8", "16", "32" };
+	const std::size_t cols = sizes.size();
+	const std::size_t rows = threads.size();
 
-	std::vector<unsigned char> buf(1'000'000 * sizeof(double), 1);
+	// synthetic throughput surface: rises with concurrency (diminishing returns)
+	// and with payload size (saturating) — row-major [thread][size] for plot::mat.
+	std::vector<double> z(rows * cols);
+	for(std::size_t r = 0; r < rows; ++r){
+		const double t = std::pow(2.0, double(r));               // 1..32 threads
+		const double conc = t / (1.0 + 0.18 * t);                // saturating speedup
+		for(std::size_t c = 0; c < cols; ++c){
+			const double bytes = std::pow(4.0, double(c)) * 1024.0;
+			const double size_factor = std::log2(bytes) / 20.0;  // larger = better
+			z[r * cols + c] = 220.0 * conc * size_factor;        // ~MB/s
+		}
+	}
 
-	bench::throughput<std::tuple<int, float, double>>(
-		bench::name{"sum"},
-		sizes,
-		bench::warmup{2}, bench::sample{10},
-		[&]<class T>(std::size_t /*idx*/, std::size_t n) -> double {
-			const std::size_t bytes = n * sizeof(T);
-			const T* data = reinterpret_cast<const T*>(buf.data());
-			const std::size_t count = buf.size() / sizeof(T);
-			volatile T acc = T{};
-			for(std::size_t i = 0; i < n; ++i) acc += data[i % count];
-			(void)acc;
-			return static_cast<double>(bytes);
-		});
+	plot::mat<double> field{ z.data(), rows, cols };
+	const plot::position title_pos{ std::size_t{4}, std::size_t{10} };
 
-	// the sink renders report.svg when bench::store_t is torn down at exit.
+	plot::heatmap(std::string("heatmap.svg"), field,
+		plot::axis::x(sizes),
+		plot::axis::y(threads),
+		plot::title(std::string("throughput [MB/s]: payload size x threads"), title_pos));
+
 	return 0;
 }

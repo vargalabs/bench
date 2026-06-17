@@ -24,6 +24,10 @@ add_executable(example_heatmap heatmap.cpp)
 target_link_libraries(example_heatmap PRIVATE bench::bench)
 set_target_properties(example_heatmap PROPERTIES OUTPUT_NAME heatmap)
 
+add_executable(example_svg_sink svg_sink.cpp)
+target_link_libraries(example_svg_sink PRIVATE bench::bench)
+set_target_properties(example_svg_sink PROPERTIES OUTPUT_NAME svg_sink)
+
 add_executable(example_line_chart line_chart.cpp)
 target_link_libraries(example_line_chart PRIVATE bench::bench)
 set_target_properties(example_line_chart PROPERTIES OUTPUT_NAME line_chart)
