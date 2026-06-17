@@ -171,18 +171,25 @@ $(document).ready(function(){initNavTree('util_8hpp_source.html',''); initResiza
 <div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span>            std::uniform_real_distribution&lt;T&gt; dist(T(0), T(1));</div>
 <div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span>            <span class="keywordflow">for</span> (std::size_t i = 0; i &lt; count; ++i)</div>
 <div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span>                out.push_back(dist(gen));</div>
-<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span>        } <span class="keywordflow">else</span> { <span class="comment">// integral (incl. bool-ish via promotion)</span></div>
+<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span>        } <span class="keywordflow">else</span> { <span class="comment">// integral</span></div>
 <div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span>            <span class="keyword">using </span>limits = std::numeric_limits&lt;T&gt;;</div>
-<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span>            std::uniform_int_distribution&lt;T&gt; dist(limits::min(), limits::max());</div>
-<div class="line"><a id="l00066" name="l00066"></a><span class="lineno">   66</span>            <span class="keywordflow">for</span> (std::size_t i = 0; i &lt; count; ++i)</div>
-<div class="line"><a id="l00067" name="l00067"></a><span class="lineno">   67</span>                out.push_back(dist(gen));</div>
-<div class="line"><a id="l00068" name="l00068"></a><span class="lineno">   68</span>        }</div>
-<div class="line"><a id="l00069" name="l00069"></a><span class="lineno">   69</span>        <span class="keywordflow">return</span> out;</div>
-<div class="line"><a id="l00070" name="l00070"></a><span class="lineno">   70</span>    }</div>
-<div class="line"><a id="l00071" name="l00071"></a><span class="lineno">   71</span> </div>
-<div class="line"><a id="l00072" name="l00072"></a><span class="lineno">   72</span>} <span class="comment">// namespace bench::util</span></div>
-<div class="line"><a id="l00073" name="l00073"></a><span class="lineno">   73</span> </div>
-<div class="line"><a id="l00074" name="l00074"></a><span class="lineno">   74</span><span class="preprocessor">#endif</span></div>
+<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span>            <span class="comment">// std::uniform_int_distribution is only defined for short/int/long/</span></div>
+<div class="line"><a id="l00066" name="l00066"></a><span class="lineno">   66</span>            <span class="comment">// long long and their unsigned variants — NOT char/bool/int8_t/</span></div>
+<div class="line"><a id="l00067" name="l00067"></a><span class="lineno">   67</span>            <span class="comment">// uint8_t/char8_t. libstdc++ permits the small types as an extension,</span></div>
+<div class="line"><a id="l00068" name="l00068"></a><span class="lineno">   68</span>            <span class="comment">// but MSVC enforces the standard (static_assert). Generate through a</span></div>
+<div class="line"><a id="l00069" name="l00069"></a><span class="lineno">   69</span>            <span class="comment">// wide conforming type and narrow to T.</span></div>
+<div class="line"><a id="l00070" name="l00070"></a><span class="lineno">   70</span>            <span class="keyword">using </span>dist_t = std::conditional_t&lt;std::is_signed_v&lt;T&gt;, <span class="keywordtype">long</span> long, <span class="keywordtype">unsigned</span> <span class="keywordtype">long</span> <span class="keywordtype">long</span>&gt;;</div>
+<div class="line"><a id="l00071" name="l00071"></a><span class="lineno">   71</span>            std::uniform_int_distribution&lt;dist_t&gt; dist(</div>
+<div class="line"><a id="l00072" name="l00072"></a><span class="lineno">   72</span>                <span class="keyword">static_cast&lt;</span>dist_t<span class="keyword">&gt;</span>(limits::min()), <span class="keyword">static_cast&lt;</span>dist_t<span class="keyword">&gt;</span>(limits::max()));</div>
+<div class="line"><a id="l00073" name="l00073"></a><span class="lineno">   73</span>            <span class="keywordflow">for</span> (std::size_t i = 0; i &lt; count; ++i)</div>
+<div class="line"><a id="l00074" name="l00074"></a><span class="lineno">   74</span>                out.push_back(<span class="keyword">static_cast&lt;</span>T<span class="keyword">&gt;</span>(dist(gen)));</div>
+<div class="line"><a id="l00075" name="l00075"></a><span class="lineno">   75</span>        }</div>
+<div class="line"><a id="l00076" name="l00076"></a><span class="lineno">   76</span>        <span class="keywordflow">return</span> out;</div>
+<div class="line"><a id="l00077" name="l00077"></a><span class="lineno">   77</span>    }</div>
+<div class="line"><a id="l00078" name="l00078"></a><span class="lineno">   78</span> </div>
+<div class="line"><a id="l00079" name="l00079"></a><span class="lineno">   79</span>} <span class="comment">// namespace bench::util</span></div>
+<div class="line"><a id="l00080" name="l00080"></a><span class="lineno">   80</span> </div>
+<div class="line"><a id="l00081" name="l00081"></a><span class="lineno">   81</span><span class="preprocessor">#endif</span></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- HTML footer for doxygen 1.9.x — H5CPP -->
