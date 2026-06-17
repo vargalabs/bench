@@ -1,0 +1,22 @@
+# build
+/build/
+/cmake-build-*/
+*.o
+*.a
+*.so
+*.dylib
+*-test
+*-bench
+
+# benchmark artifacts
+*.prof
+*.csv
+*.json
+report.*
+
+# editor / OS
+.theia/
+.vscode/
+.idea/
+*.swp
+.DS_Store
