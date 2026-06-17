@@ -1,0 +1,49 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # Doxygen single-page site (API reference + curated @mainpage with the
+  # embedded benchmark heatmap). Generated from include/bench/ and
+  # doxy/docs/index.md; published to the gh-pages root.
+  deploy-doxygen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Doxygen + Graphviz
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y doxygen graphviz
+
+      - name: Build Doxygen documentation
+        run: doxygen Doxyfile
+        working-directory: doxy
+
+      - name: Summarise Doxygen warnings
+        if: always()
+        run: |
+          log=doxy/docs/doxygen/warnings.log
+          if [[ -f $log ]]; then
+            count=$(wc -l < $log)
+            echo "::notice::Doxygen warnings: $count lines"
+            head -50 $log || true
+          else
+            echo "::notice::No Doxygen warnings log produced"
+          fi
+
+      - name: Deploy Doxygen to gh-pages root
+        if: github.event_name == 'push'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./doxy/docs/doxygen/html
+          destination_dir: .
+          keep_files: true

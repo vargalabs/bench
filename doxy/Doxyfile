@@ -1,0 +1,92 @@
+# Doxyfile 1.9.x — bench API reference
+# Run from the doxy/ directory: doxygen Doxyfile
+# Output lands in docs/doxygen/html/
+
+DOXYFILE_ENCODING      = UTF-8
+PROJECT_NAME           = bench
+PROJECT_NUMBER         =
+PROJECT_BRIEF          = "Header-only C++ micro-benchmark library with compile-time type-axis dispatch"
+PROJECT_LOGO           =
+OUTPUT_DIRECTORY       = docs/doxygen
+CREATE_SUBDIRS         = NO
+ALLOW_UNICODE_NAMES    = NO
+OUTPUT_LANGUAGE        = English
+
+BRIEF_MEMBER_DESC      = YES
+REPEAT_BRIEF           = YES
+ALWAYS_DETAILED_SEC    = NO
+INLINE_INHERITED_MEMB  = NO
+FULL_PATH_NAMES        = NO
+
+TAB_SIZE               = 4
+MARKDOWN_SUPPORT       = YES
+TOC_INCLUDE_HEADINGS   = 0
+# Disabled deliberately: automatic symbol-linking tries to resolve every inline
+# `type<T>::member` code reference as a link and fails (Doxygen parses the `<T>`
+# as HTML). Explicit navigation via @ref / \ref / [text](@ref x) is unaffected.
+AUTOLINK_SUPPORT       = NO
+BUILTIN_STL_SUPPORT    = NO
+HIDE_UNDOC_MEMBERS     = YES
+HIDE_UNDOC_CLASSES     = YES
+HIDE_FRIEND_COMPOUNDS  = YES
+HIDE_IN_BODY_DOCS      = YES
+INTERNAL_DOCS          = NO
+SHOW_INCLUDE_FILES     = NO
+SORT_MEMBER_DOCS       = NO
+GENERATE_TESTLIST      = NO
+GENERATE_BUGLIST       = NO
+GENERATE_DEPRECATEDLIST= NO
+SHOW_FILES             = NO
+SHOW_NAMESPACES        = NO
+
+WARN_FORMAT            = "$file:$line: $text"
+WARN_AS_ERROR          = NO
+WARN_NO_PARAMDOC       = NO
+WARN_LOGFILE           = docs/doxygen/warnings.log
+
+# Input: API headers + the curated main page.
+INPUT                  = ../include/bench \
+                         docs/index.md
+
+FILE_PATTERNS          = *.cpp *.hpp *.h *.md *.dox
+RECURSIVE              = YES
+
+EXCLUDE                = docs/doxygen
+
+# Example sources surfaced via EXAMPLE_PATH below.
+EXAMPLE_PATH           = ../examples
+EXAMPLE_PATTERNS       = *.cpp *.hpp *.h
+EXAMPLE_RECURSIVE      = YES
+
+# Embedded benchmark heatmap (and any future page images).
+IMAGE_PATH             = images
+
+USE_MDFILE_AS_MAINPAGE = docs/index.md
+
+# Index and layout
+ALPHABETICAL_INDEX     = NO
+LAYOUT_FILE            = DoxygenLayout.xml
+
+# HTML output
+HTML_OUTPUT            = html
+HTML_FILE_EXTENSION    = .html
+HTML_HEADER            = header.html
+HTML_FOOTER            = footer.html
+HTML_EXTRA_STYLESHEET  = doxygen-awesome.css customdoxygen.css
+HTML_EXTRA_FILES       = doxygen-awesome-darkmode-toggle.js \
+                         doxygen-overload-collapse.js
+HTML_COLORSTYLE_HUE    = 28
+HTML_COLORSTYLE_SAT    = 150
+HTML_COLORSTYLE_GAMMA  = 80
+HTML_TIMESTAMP         = NO
+HTML_DYNAMIC_SECTIONS  = NO
+HTML_INDEX_NUM_ENTRIES = 100
+
+GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
+ENUM_VALUES_PER_LINE   = 4
+
+# No LaTeX
+GENERATE_LATEX         = NO
+
+QUIET                  = YES

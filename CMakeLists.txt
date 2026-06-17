@@ -15,10 +15,31 @@ target_include_directories(bench INTERFACE
 )
 target_compile_features(bench INTERFACE cxx_std_23)
 
+# Optional external plot:: library (vargalabs/plots). When present, the opt-in
+# SVG sink example/test (include/bench/sink/svg.hpp -> <plot/all>) is built;
+# when absent the bench core still configures, builds, and tests cleanly.
+find_package(plot CONFIG QUIET)
+
 option(BENCH_BUILD_TESTS "Build smoke tests" ON)
 if(BENCH_BUILD_TESTS)
 	enable_testing()
 	add_subdirectory(test)
+endif()
+
+option(BENCH_BUILD_EXAMPLES "Build examples (incl. the svg_sink heatmap demo)" ON)
+if(BENCH_BUILD_EXAMPLES)
+	add_subdirectory(examples)
+endif()
+
+# Doxygen single-page API reference. Opt-in custom target `docs-doxygen`;
+# only registered when a doxygen binary is found. Output: doxy/docs/doxygen/html.
+find_program(DOXYGEN_EXECUTABLE doxygen)
+if(DOXYGEN_EXECUTABLE)
+	add_custom_target(docs-doxygen COMMAND ${DOXYGEN_EXECUTABLE} Doxyfile
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/doxy
+		COMMENT "Building Doxygen API reference → doxy/docs/doxygen/html"
+		VERBATIM
+	)
 endif()
 
 include(GNUInstallDirs)
