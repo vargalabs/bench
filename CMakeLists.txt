@@ -15,6 +15,11 @@ target_include_directories(bench INTERFACE
 )
 target_compile_features(bench INTERFACE cxx_std_23)
 
+# Optional external plot:: library (vargalabs/plots). When present, the opt-in
+# SVG sink example/test (include/bench/sink/svg.hpp -> <plot/all>) is built;
+# when absent the bench core still configures, builds, and tests cleanly.
+find_package(plot CONFIG QUIET)
+
 option(BENCH_BUILD_TESTS "Build smoke tests" ON)
 if(BENCH_BUILD_TESTS)
 	enable_testing()
