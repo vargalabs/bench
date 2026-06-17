@@ -21,7 +21,7 @@ if(BENCH_BUILD_TESTS)
 	add_subdirectory(test)
 endif()
 
-option(BENCH_BUILD_EXAMPLES "Build examples" ON)
+option(BENCH_BUILD_EXAMPLES "Build examples (incl. the svg_sink heatmap demo)" ON)
 if(BENCH_BUILD_EXAMPLES)
 	add_subdirectory(examples)
 endif()

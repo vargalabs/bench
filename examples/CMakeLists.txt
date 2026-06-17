@@ -19,3 +19,7 @@ set_target_properties(example_type_dispatch PROPERTIES OUTPUT_NAME type_dispatch
 add_executable(example_sinks sinks.cpp)
 target_link_libraries(example_sinks PRIVATE bench::bench)
 set_target_properties(example_sinks PROPERTIES OUTPUT_NAME sinks)
+
+add_executable(example_heatmap heatmap.cpp)
+target_link_libraries(example_heatmap PRIVATE bench::bench)
+set_target_properties(example_heatmap PROPERTIES OUTPUT_NAME heatmap)

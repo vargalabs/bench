@@ -1,0 +1,18 @@
+/* Copyright (c) 2026 Steven Varga, Toronto, ON, Canada
+ * MIT License — see LICENSE
+ *
+ * Umbrella include for the dependency-free SVG plotting layer (plot).
+ * Unlike the originals, every header below has explicit, self-sufficient
+ * includes — this umbrella is a convenience, not a load-order requirement.
+ */
+#ifndef PLOT_ALL
+#define PLOT_ALL
+	#include "tags.hpp"
+	#include "meta.hpp"
+	#include "utils.hpp"
+	#include "attributes.hpp"
+	#include "canvas.hpp"
+	#include "text.hpp"
+	#include "axis.hpp"
+	#include "heatmap.hpp"
+#endif
