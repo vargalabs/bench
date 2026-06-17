@@ -34,5 +34,11 @@ namespace plot::tag {
 	struct horizontal_t{};
 	struct vertical_t{};
 	struct margin_t{};
+	// GR.jl-style line/scatter named arguments
+	struct xlabel_t{};
+	struct ylabel_t{};
+	struct xlog_t{};
+	struct ylog_t{};
+	struct theme_t{};   // per-call theme override (plot::use{...})
 }
 #endif

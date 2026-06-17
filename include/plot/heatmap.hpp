@@ -29,6 +29,8 @@
 #include "axis.hpp"
 #include "text.hpp"
 #include "meta.hpp"
+#include "theme.hpp"
+#include "gr.hpp"
 
 namespace plot {
 	// Non-owning, row-major matrix view — the dependency-free replacement for the
@@ -84,7 +86,8 @@ namespace plot::impl {
 	typename std::enable_if<std::is_integral<T>::value || std::is_enum<T>::value>
 	::type heatmap(impl::canvas_t& canvas, float x, float y,
 			std::vector<float>& dx, std::vector<float>& dy, float width, float height,
-			const plot::mat<T>& data, const plot::attribute::color_t& palette ) {
+			const plot::mat<T>& data, const plot::attribute::color_t& palette,
+			const std::array<std::uint32_t,3>& /*grad*/ ) {
 		using attribute_t = plot::attribute::element_t;
 		attribute_t mock_attr, gr_attr;
 		// find unique elements
@@ -112,7 +115,8 @@ namespace plot::impl {
 	typename std::enable_if<std::is_integral<T>::value || std::is_enum<T>::value>
 	::type heatmap(impl::canvas_t& canvas, float x, float y,
 			std::vector<float>& dx, std::vector<float>& dy, float width, float height,
-			const std::vector<plot::data::point_t<T>>& data, const plot::attribute::color_t& palette ) {
+			const std::vector<plot::data::point_t<T>>& data, const plot::attribute::color_t& palette,
+			const std::array<std::uint32_t,3>& /*grad*/ ) {
 		using attribute_t = plot::attribute::element_t;
 		attribute_t rect_attr, gr_attr;
 
@@ -134,7 +138,8 @@ namespace plot::impl {
 	typename std::enable_if<std::is_arithmetic<T>::value && !std::is_integral<T>::value>
 	::type heatmap(impl::canvas_t& canvas, float x, float y,
 			std::vector<float>& dx, std::vector<float>& dy, float width, float height,
-			const plot::mat<T>& data, const plot::attribute::color_t& /*palette*/ ) {
+			const plot::mat<T>& data, const plot::attribute::color_t& /*palette*/,
+			const std::array<std::uint32_t,3>& grad ) {
 		using attribute_t = plot::attribute::element_t;
 		if( data.rows == 0 || data.cols == 0 ) return;
 
@@ -154,7 +159,7 @@ namespace plot::impl {
 					double value = static_cast<double>(data(i,j));
 					double t = (value - lo) / span;
 					attribute_t cell;
-					cell.color = plot::attribute::color_t{ impl::gradient(t) };
+					cell.color = plot::attribute::color_t{ impl::gradient3(grad, t) };
 					cell.label = std::format("{:.4g}", value);
 					canvas.rect( dx[j], dy[i], width, height, 1.5, 1.5, cell );
 				}
@@ -203,7 +208,12 @@ namespace plot {
 		else
 			height = static_cast<std::size_t>(y_axis.get_y() + offset_y + margin[3]);
 
+		const theme_t& th = impl::resolve_theme(args...);
+
 		auto canvas = plot::impl::canvas_t(os, width, height + 10, margin);
+		// theme background spanning the whole canvas (painted first, under all).
+		{ plot::attribute::element_t bg; bg.color = plot::attribute::color_t{ th.bg };
+		  canvas.rect(0, 0, static_cast<float>(width), static_cast<float>(height + 10), 0, 0, bg); }
 		canvas << x_axis; canvas << y_axis;
 
 		if constexpr (title_t::present)    canvas << std::get<title_t::position>( tuple );
@@ -217,7 +227,7 @@ namespace plot {
 		}
 		impl::heatmap(canvas,
 				offset_x, offset_y, x_axis.dx, y_axis.dy,
-				.9f * x_axis.grid, .9f * y_axis.grid, data, palette );
+				.9f * x_axis.grid, .9f * y_axis.grid, data, palette, th.gradient );
 	}
 
 	// filename convenience: opens a truncating ofstream and renders into it.
