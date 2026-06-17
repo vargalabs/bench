@@ -44,7 +44,7 @@ int main(){
 	plot::heatmap(std::string("heatmap.svg"), field,
 		plot::axis::x(sizes),
 		plot::axis::y(threads),
-		plot::title(std::string("throughput [MB/s]: payload size x threads"), title_pos));
+		plot::title(std::string("throughput MB/s"), title_pos));
 
 	return 0;
 }

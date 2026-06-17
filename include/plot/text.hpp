@@ -46,6 +46,10 @@ namespace plot {
 		title(const std::string& txt, Ts... args)
 			: attribute::element_t(args...), txt(txt) {
 			this->font = arg::get<font_t>(args...);
+			// without an explicit font the <text> would inherit the SVG default
+			// (~16px) — enormous on a compactly auto-sized plot. Default to a
+			// modest bold title proportional to the small tick fonts.
+			if( !this->font ) this->font = font_t{"Arial, Helvetica, sans-serif", "bold", 8u};
 		}
 
 		void ostream( impl::canvas_t& os ) const {
