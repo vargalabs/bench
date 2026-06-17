@@ -1,33 +1,284 @@
-# Core build only: the plot:: library (vargalabs/plots) is not installed here,
-# so the opt-in svg example/test auto-skip via find_package(plot). svg coverage
-# is exercised locally until plot is installable in CI (no private cross-repo
-# checkout/auth wired up).
-name: ci
+# bench is a header-only, dependency-free C++23 micro-benchmark library. The
+# core needs no HDF5/zlib/boost/vcpkg, so this matrix only installs a toolchain
+# (cmake/ninja + compiler) and builds.  The opt-in bench::svg_sink needs the
+# external plot:: library (vargalabs/plots) via find_package(plot); it is NOT
+# installed here, so the svg example/test auto-skip and the core still builds.
+name: CI
 
 on:
   push:
+    branches: [ release, staging ]
   pull_request:
+    branches: [ release, staging ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: ${{ matrix.os }} / ${{ matrix.compiler }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
     strategy:
       fail-fast: false
       matrix:
-        compiler:
-          - { cc: gcc,   cxx: g++ }
-          - { cc: clang, cxx: clang++ }
-    env:
-      CC: ${{ matrix.compiler.cc }}
-      CXX: ${{ matrix.compiler.cxx }}
+        include:
+          - os: ubuntu-22.04
+            compiler: gcc-13
+            compiler-version: 13
+          - os: ubuntu-22.04
+            compiler: clang-18
+            compiler-version: 18
+          - os: ubuntu-24.04
+            compiler: gcc-14
+            compiler-version: 14
+          - os: ubuntu-24.04
+            compiler: clang-20
+            compiler-version: 20
+          - os: macos-15
+            compiler: apple-clang
+            compiler-version: native
+          - os: windows-latest
+            compiler: msvc
+            compiler-version: native
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install build tools on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build wget gnupg lsb-release software-properties-common
+
+      - name: Setup compiler on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          compiler="${{ matrix.compiler }}"
+          version="${{ matrix.compiler-version }}"
+
+          if [[ "$compiler" == clang-* ]]; then
+            wget https://apt.llvm.org/llvm.sh
+            chmod +x llvm.sh
+            sudo ./llvm.sh "$version" all
+
+            echo "CC=$(command -v clang-$version)" >> "$GITHUB_ENV"
+            echo "CXX=$(command -v clang++-$version)" >> "$GITHUB_ENV"
+
+            clang++-"$version" --version
+
+          elif [[ "$compiler" == gcc-* ]]; then
+            if ! command -v "gcc-$version" &>/dev/null; then
+              sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+              for attempt in 1 2 3; do
+                sudo apt-get update
+                if apt-cache show "gcc-$version" >/dev/null 2>&1; then
+                  break
+                fi
+                if [[ $attempt -lt 3 ]]; then
+                  echo "Package gcc-$version not found after update (attempt $attempt), retrying in 30s..."
+                  sleep 30
+                else
+                  echo "Package gcc-$version not found in PPA after $attempt attempts" >&2
+                  exit 1
+                fi
+              done
+              sudo apt-get install -y "gcc-$version" "g++-$version"
+            fi
+
+            echo "CC=$(command -v gcc-$version)" >> "$GITHUB_ENV"
+            echo "CXX=$(command -v g++-$version)" >> "$GITHUB_ENV"
+
+            g++-"$version" --version
+          fi
+
+      - name: Install build tools on macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          brew update
+          brew install --quiet cmake ninja
+
+          # macOS uses apple-clang as the default compiler.
+          echo "CC=clang"  >> "$GITHUB_ENV"
+          echo "CXX=clang++" >> "$GITHUB_ENV"
+          clang++ --version
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          cmake -S . -B build \
+            -G Ninja \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_CXX_COMPILER="$CXX" \
+            -DCMAKE_CXX_STANDARD=23 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBENCH_BUILD_TESTS=ON \
+            -DBENCH_BUILD_EXAMPLES=ON
+
+      - name: Configure Windows
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          cmake -S . -B build `
+            -DCMAKE_CXX_STANDARD=23 `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DBENCH_BUILD_TESTS=ON `
+            -DBENCH_BUILD_EXAMPLES=ON
 
       - name: Build
-        run: cmake --build build -j
+        run: cmake --build build --parallel --config Release
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure
+        shell: bash
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Record Badge Status
+        if: always()
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          mkdir -p badge-status
+
+          cat <<EOF > "badge-status/status-${{ matrix.os }}-${{ matrix.compiler }}.json"
+          {
+            "os": "${{ matrix.os }}",
+            "compiler": "${{ matrix.compiler }}",
+            "status": "${{ job.status }}"
+          }
+          EOF
+
+      - name: Upload Status Artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: status-${{ matrix.os }}-${{ matrix.compiler }}
+          path: badge-status/status-${{ matrix.os }}-${{ matrix.compiler }}.json
+
+  badge:
+    name: Generate SVG Badges
+    if: always()
+    needs: [build]
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Install badge tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+
+      - name: Download all status artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: badge-status
+          pattern: status-*
+          merge-multiple: true
+
+      - name: Generate SVG Badges
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          ref_name="${GITHUB_REF_NAME:-}"
+
+          if [[ "$ref_name" == "staging" ]]; then
+            badge_dir="badges-staging"
+          else
+            badge_dir="badges"
+          fi
+
+          mkdir -p "$badge_dir"
+
+          na_badge="$badge_dir/na.svg"
+          na_url="https://img.shields.io/badge/na-%E2%97%8B-gray.svg"
+
+          if [[ ! -f "$na_badge" ]]; then
+            echo "$na_url -> $na_badge"
+            curl -fsSL "$na_url" -o "$na_badge"
+          fi
+
+          for status_file in badge-status/*.json; do
+            os=$(jq -r '.os' "$status_file")
+            compiler=$(jq -r '.compiler' "$status_file")
+            status=$(jq -r '.status' "$status_file")
+            custom_label=$(jq -r '.label // ""' "$status_file")
+
+            prefix="unknown"
+            symbol="%3F"
+            color="lightgrey"
+
+            case "$status" in
+              success)
+                prefix="ok"
+                symbol="%E2%9C%94"
+                color="green"
+                ;;
+              failure)
+                prefix="failed"
+                symbol="%E2%9C%98"
+                color="red"
+                ;;
+              cancelled)
+                prefix="cancelled"
+                symbol="%E2%97%87"
+                color="yellow"
+                ;;
+              skipped)
+                prefix="na"
+                symbol="%E2%97%8B"
+                color="gray"
+                ;;
+            esac
+
+            if [[ -n "$custom_label" ]]; then
+              badge_name="${custom_label,,}"
+              url="https://img.shields.io/badge/${custom_label}-${symbol}-${color}.svg"
+            else
+              badge_name="${os}-${compiler}"
+              url="https://img.shields.io/badge/${prefix}-${symbol}-${color}.svg"
+            fi
+
+            badge="$badge_dir/${badge_name}.svg"
+
+            echo "$url -> $badge"
+            curl -fsSL "$url" -o "$badge"
+          done
+
+      - name: Upload badges artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ github.ref_name == 'staging' && 'badges-staging' || 'badges' }}
+          path: ${{ github.ref_name == 'staging' && 'badges-staging' || 'badges' }}
+
+      - name: Deploy badges to GitHub Pages
+        if: github.event_name == 'push'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./${{ github.ref_name == 'staging' && 'badges-staging' || 'badges' }}
+          destination_dir: ${{ github.ref_name == 'staging' && 'badges-staging' || 'badges' }}
+          keep_files: true   # prevents wiping the other branch's folder on every deploy
