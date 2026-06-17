@@ -1,3 +1,7 @@
+# Core build only: the plot:: library (vargalabs/plots) is not installed here,
+# so the opt-in svg example/test auto-skip via find_package(plot). svg coverage
+# is exercised locally until plot is installable in CI (no private cross-repo
+# checkout/auth wired up).
 name: ci
 
 on:
