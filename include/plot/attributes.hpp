@@ -3,10 +3,10 @@
  *
  * SVG element attributes (color, font, stroke, position, rotation, ...) and the
  * order-independent `element_t` aggregate built from named arguments. Ported
- * from plot:: into bench::plot::. Dependency-free (standard library only).
+ * from plot:: into plot::. Dependency-free (standard library only).
  */
-#ifndef BENCH_PLOT_ATTRIBUTE_HPP
-#define BENCH_PLOT_ATTRIBUTE_HPP
+#ifndef PLOT_ATTRIBUTE_HPP
+#define PLOT_ATTRIBUTE_HPP
 
 #include <memory>
 #include <string>
@@ -21,7 +21,7 @@
 #include "tags.hpp"
 #include "meta.hpp"
 
-namespace bench::plot::attribute {
+namespace plot::attribute {
 	enum class hue_t : unsigned {
 		aliceblue=0xF0F8FF, blueviolet=0x8a2be2,
 	};
@@ -176,7 +176,7 @@ namespace bench::plot::attribute {
 	};
 }
 
-namespace bench::plot {
+namespace plot {
 	using position = attribute::position_t;
 	using font = attribute::font_t;
 	using hue = attribute::hue_t;

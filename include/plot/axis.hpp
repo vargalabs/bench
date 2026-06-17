@@ -2,10 +2,10 @@
  * MIT License — see LICENSE
  *
  * X/Y axis elements: lay out tick labels along a grid and render them through
- * the canvas. Ported from plot:: into bench::plot::. Dependency-free.
+ * the canvas. Ported from plot:: into plot::. Dependency-free.
  */
-#ifndef BENCH_PLOT_AXIS_HPP
-#define BENCH_PLOT_AXIS_HPP
+#ifndef PLOT_AXIS_HPP
+#define PLOT_AXIS_HPP
 
 #include <vector>
 #include <string>
@@ -18,7 +18,7 @@
 #include "utils.hpp"
 #include "meta.hpp"
 
-namespace bench::plot::axis {
+namespace plot::axis {
 	constexpr float rad = 3.14159265358979f / 180.0f;
 
 	template <class T, class... Ts>
@@ -30,7 +30,7 @@ namespace bench::plot::axis {
 		using layout_t = attribute::layout_t;
 		using degree_t = attribute::degree_t;
 		using position_t = attribute::position_t;
-		using attribute_t = bench::plot::attribute::element_t;
+		using attribute_t = plot::attribute::element_t;
 
 		x(const std::vector<T>& labels, Ts... args)
 			: attribute::element_t(args...), labels(labels) {
@@ -76,12 +76,12 @@ namespace bench::plot::axis {
 		using layout_t = attribute::layout_t;
 		using degree_t = attribute::degree_t;
 		using position_t = attribute::position_t;
-		using attribute_t = bench::plot::attribute::element_t;
+		using attribute_t = plot::attribute::element_t;
 
 		y(const std::vector<T>& labels, Ts... args)
 			: attribute::element_t(args...), labels(labels) {
 			if( !rotate ) rotate = degree_t{0.0} ;
-			this->layout = bench::plot::layout::vertical;
+			this->layout = plot::layout::vertical;
 			dx.resize(labels.size()); dy.resize(labels.size());
 			set_font( arg::get<font_t>(args...) );
 		}

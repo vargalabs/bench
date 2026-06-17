@@ -2,10 +2,10 @@
  * MIT License — see LICENSE
  *
  * Text-bearing SVG elements: free text, title, footnote, legend, style.
- * Ported from plot:: into bench::plot::. Dependency-free (standard library only).
+ * Ported from plot:: into plot::. Dependency-free (standard library only).
  */
-#ifndef BENCH_PLOT_TEXT_HPP
-#define BENCH_PLOT_TEXT_HPP
+#ifndef PLOT_TEXT_HPP
+#define PLOT_TEXT_HPP
 
 #include <string>
 #include <vector>
@@ -17,7 +17,7 @@
 #include "canvas.hpp"
 #include "meta.hpp"
 
-namespace bench::plot {
+namespace plot {
 	struct text : public attribute::element_t, public impl::io_t<text> {
 		using value_type = tag::text_t;
 		text( std::initializer_list<std::string> il) {
@@ -68,9 +68,9 @@ namespace bench::plot {
 		using attribute::element_t::position;
 		using attribute::element_t::color;
 		using font_t = attribute::font_t;
-		using attribute_t = bench::plot::attribute::element_t;
-		using align_t = bench::plot::attribute::align_t;
-		using color_t = bench::plot::attribute::color_t;
+		using attribute_t = plot::attribute::element_t;
+		using align_t = plot::attribute::align_t;
+		using color_t = plot::attribute::color_t;
 
 		legend(Ts... args) : attribute::element_t(args...) {
 			if( !font ){

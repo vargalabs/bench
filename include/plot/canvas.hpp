@@ -3,12 +3,12 @@
  *
  * The SVG canvas: opens an <svg> document on construction, writes primitives
  * (rect/text/line/poly_line/circle/group) via std::format, and closes it on
- * destruction. Ported from plot:: into bench::plot::; the original matrix and
+ * destruction. Ported from plot:: into plot::; the original matrix and
  * formatting third-party dependencies are removed (std::format only).
  * Dependency-free.
  */
-#ifndef BENCH_PLOT_CANVAS_HPP
-#define BENCH_PLOT_CANVAS_HPP
+#ifndef PLOT_CANVAS_HPP
+#define PLOT_CANVAS_HPP
 
 #include <string>
 #include <string_view>
@@ -26,16 +26,16 @@
 #include "attributes.hpp"
 #include "utils.hpp"
 
-namespace bench::plot::impl {
+namespace plot::impl {
 	struct canvas_t {
-		using color_t = bench::plot::attribute::color_t;
-		using font_t = bench::plot::attribute::font_t;
-		using stroke_t = bench::plot::attribute::stroke_t;
-		using opacity_t = bench::plot::attribute::opacity_t;
-		using id_t = bench::plot::attribute::id_t;
-		using position_t = bench::plot::attribute::position_t;
-		using attribute_t = bench::plot::attribute::element_t;
-		using align_t = bench::plot::attribute::align_t;
+		using color_t = plot::attribute::color_t;
+		using font_t = plot::attribute::font_t;
+		using stroke_t = plot::attribute::stroke_t;
+		using opacity_t = plot::attribute::opacity_t;
+		using id_t = plot::attribute::id_t;
+		using position_t = plot::attribute::position_t;
+		using attribute_t = plot::attribute::element_t;
+		using align_t = plot::attribute::align_t;
 
 		// stream-backed: render into any std::ostream (file or in-memory)
 		canvas_t(std::ostream& os, std::size_t x, std::size_t y, const std::array<float,4>& margin);
@@ -99,7 +99,7 @@ namespace bench::plot::impl {
 	};
 }
 
-namespace bench::plot::impl {
+namespace plot::impl {
 	template <class Derived >
 	struct io_t {
 		void ostream( impl::canvas_t& ) const {
@@ -113,18 +113,18 @@ namespace bench::plot::impl {
 	};
 }
 
-inline bench::plot::impl::canvas_t::canvas_t( std::ostream& os, std::size_t width, std::size_t height, const std::array<float,4>& margin )
+inline plot::impl::canvas_t::canvas_t( std::ostream& os, std::size_t width, std::size_t height, const std::array<float,4>& margin )
 	: width(width), height(height), margin(margin), os(os) {
 
 	os << fmt( svg_start_, 0,0, width,height);
 }
 
-inline bench::plot::impl::canvas_t::~canvas_t(){
+inline plot::impl::canvas_t::~canvas_t(){
 	os << svg_end_;
 }
 
 
-inline void bench::plot::impl::canvas_t::group (std::variant<std::size_t, align_t> x, std::variant<std::size_t, align_t> y,
+inline void plot::impl::canvas_t::group (std::variant<std::size_t, align_t> x, std::variant<std::size_t, align_t> y,
 		const attribute_t& attr, std::function<void()> const& call ){
 	float _x = align_x( x ); float _y = align_y( y, attr.font );
 
@@ -138,13 +138,13 @@ inline void bench::plot::impl::canvas_t::group (std::variant<std::size_t, align_
 }
 
 inline std::pair<std::size_t,std::size_t>
-bench::plot::impl::canvas_t::bounding_box( const std::vector<std::string>&, double,
+plot::impl::canvas_t::bounding_box( const std::vector<std::string>&, double,
 	   	const std::vector<std::string>&, double,  std::size_t ){
 
 	return std::make_pair(std::size_t{0}, std::size_t{0});
 }
 
-inline void bench::plot::impl::canvas_t::rect(float x, float y, float width, float height, float rx, float ry,
+inline void plot::impl::canvas_t::rect(float x, float y, float width, float height, float rx, float ry,
 		const attribute_t& attr){
 	std::string _attr, _lbl;
 	if( attr.color )  _attr += fmt(fill_, static_cast<unsigned>(attr.color.value()) );
@@ -155,7 +155,7 @@ inline void bench::plot::impl::canvas_t::rect(float x, float y, float width, flo
 	if( attr.href ) os << fmt(href_end_);
 }
 
-inline void bench::plot::impl::canvas_t::circle(float cx, float cy, float radius, const attribute_t& attr){
+inline void plot::impl::canvas_t::circle(float cx, float cy, float radius, const attribute_t& attr){
 	std::string _attr, _lbl;
 	if( attr.color )  _attr += fmt(fill_, static_cast<unsigned>(attr.color.value()) );
 	if( attr.stroke ) _attr += fmt(stroke_attr_, attr.color ? static_cast<unsigned>(attr.color.value()) : 0u, attr.stroke->width);
@@ -166,13 +166,13 @@ inline void bench::plot::impl::canvas_t::circle(float cx, float cy, float radius
 	if( attr.href ) os << fmt(href_end_);
 }
 
-inline void bench::plot::impl::canvas_t::line(float x1, float y1, float x2, float y2, const attribute_t& attr){
+inline void plot::impl::canvas_t::line(float x1, float y1, float x2, float y2, const attribute_t& attr){
 	const unsigned color = attr.color ? static_cast<unsigned>(attr.color.value()) : 0u;
 	const float w = attr.stroke ? attr.stroke->width : 1.0f;
 	os << fmt(line_, x1, y1, x2, y2, fmt(stroke_attr_, color, w));
 }
 
-inline void bench::plot::impl::canvas_t::poly_line(const std::vector<float>& x, const std::vector<float>& y,
+inline void plot::impl::canvas_t::poly_line(const std::vector<float>& x, const std::vector<float>& y,
 		const attribute_t& attr){
 	const unsigned color = attr.color ? static_cast<unsigned>(attr.color.value()) : 0u;
 	const float w = attr.stroke ? attr.stroke->width : 1.0f;
@@ -185,7 +185,7 @@ inline void bench::plot::impl::canvas_t::poly_line(const std::vector<float>& x, 
 	os << fmt(polyline_, points, fmt(stroke_attr_, color, w));
 }
 
-inline void bench::plot::impl::canvas_t::text( const std::string& txt,
+inline void plot::impl::canvas_t::text( const std::string& txt,
 		std::variant<std::size_t, align_t> x, std::variant<std::size_t, align_t> y, const attribute_t& attr ){
 	float _x = align_x( x ); float _y = align_y( y, attr.font );
 	int i = std::holds_alternative<std::size_t>( x ) ? 0 : static_cast<int>(std::get<align_t>(x));
@@ -199,12 +199,12 @@ inline void bench::plot::impl::canvas_t::text( const std::string& txt,
 	os << fmt(text_, _x, _y, _attr, util::html_escape(txt) );
 }
 
-inline void bench::plot::impl::canvas_t::align( std::optional<align_t> x ) {
+inline void plot::impl::canvas_t::align( std::optional<align_t> x ) {
 	if( !x ) return;
 		os << fmt(text_anchor_, align_horizontal[ static_cast<int>(x.value()) ]);
 }
 
-inline float bench::plot::impl::canvas_t::align_x( std::variant<std::size_t, align_t> x ) {
+inline float plot::impl::canvas_t::align_x( std::variant<std::size_t, align_t> x ) {
 	if( std::holds_alternative<std::size_t>( x ) )
 		return static_cast<float>(std::get<std::size_t>( x ));
 	switch( std::get<align_t>(x) ){
@@ -216,7 +216,7 @@ inline float bench::plot::impl::canvas_t::align_x( std::variant<std::size_t, ali
 	return std::get<0>(margin);
 }
 
-inline float bench::plot::impl::canvas_t::align_y( std::variant<std::size_t, align_t> y, const std::optional<font_t>& font ) {
+inline float plot::impl::canvas_t::align_y( std::variant<std::size_t, align_t> y, const std::optional<font_t>& font ) {
 	if( std::holds_alternative<std::size_t>( y ) )
 		return static_cast<float>(std::get<std::size_t>( y ));
 	switch( std::get<align_t>(y) ){

@@ -5,12 +5,12 @@
  *   - categorical (integral/enum): unique value -> palette index;
  *   - continuous (arithmetic, e.g. double): per-cell normalize across [min,max]
  *     then map to a 3-stop blue->yellow->red gradient.
- * Ported from plot:: into bench::plot::; the original third-party matrix
+ * Ported from plot:: into plot::; the original third-party matrix
  * dependency is replaced by a tiny non-owning row-major `mat<T>` view.
  * Dependency-free.
  */
-#ifndef BENCH_PLOT_HEATMAP_HPP
-#define BENCH_PLOT_HEATMAP_HPP
+#ifndef PLOT_HEATMAP_HPP
+#define PLOT_HEATMAP_HPP
 
 #include <string>
 #include <vector>
@@ -30,7 +30,7 @@
 #include "text.hpp"
 #include "meta.hpp"
 
-namespace bench::plot {
+namespace plot {
 	// Non-owning, row-major matrix view — the dependency-free replacement for the
 	// third-party dense matrix the original heatmap overload consumed.
 	template<class T> struct mat {
@@ -41,7 +41,7 @@ namespace bench::plot {
 	};
 }
 
-namespace bench::plot::data {
+namespace plot::data {
 	template <class T>
 	struct point_t {
 		std::size_t x,y;
@@ -50,7 +50,7 @@ namespace bench::plot::data {
 	};
 }
 
-namespace bench::plot::impl {
+namespace plot::impl {
 	// 3-stop blue -> yellow -> red linear gradient; t in [0,1] -> 0xRRGGBB.
 	inline std::uint32_t gradient(double t){
 		if( t < 0.0 ) t = 0.0; else if( t > 1.0 ) t = 1.0;
@@ -78,14 +78,14 @@ namespace bench::plot::impl {
 	}
 }
 
-namespace bench::plot::impl {
+namespace plot::impl {
 	// ---- categorical heatmap over a mat<T> view (integral / enum) -------------
 	template <typename T>
 	typename std::enable_if<std::is_integral<T>::value || std::is_enum<T>::value>
 	::type heatmap(impl::canvas_t& canvas, float x, float y,
 			std::vector<float>& dx, std::vector<float>& dy, float width, float height,
-			const bench::plot::mat<T>& data, const bench::plot::attribute::color_t& palette ) {
-		using attribute_t = bench::plot::attribute::element_t;
+			const plot::mat<T>& data, const plot::attribute::color_t& palette ) {
+		using attribute_t = plot::attribute::element_t;
 		attribute_t mock_attr, gr_attr;
 		// find unique elements
 		std::vector<T> M(data.begin(), data.end());
@@ -106,14 +106,14 @@ namespace bench::plot::impl {
 	}
 }
 
-namespace bench::plot::impl {
+namespace plot::impl {
 	// ---- categorical heatmap over a point list (integral / enum) --------------
 	template <typename T>
 	typename std::enable_if<std::is_integral<T>::value || std::is_enum<T>::value>
 	::type heatmap(impl::canvas_t& canvas, float x, float y,
 			std::vector<float>& dx, std::vector<float>& dy, float width, float height,
-			const std::vector<bench::plot::data::point_t<T>>& data, const bench::plot::attribute::color_t& palette ) {
-		using attribute_t = bench::plot::attribute::element_t;
+			const std::vector<plot::data::point_t<T>>& data, const plot::attribute::color_t& palette ) {
+		using attribute_t = plot::attribute::element_t;
 		attribute_t rect_attr, gr_attr;
 
 		gr_attr.color.reset();
@@ -126,7 +126,7 @@ namespace bench::plot::impl {
 	}
 }
 
-namespace bench::plot::impl {
+namespace plot::impl {
 	// ---- continuous-gradient heatmap over a mat<T> view (arithmetic) ----------
 	// Each cell is normalized across the grid's [min,max] and coloured via the
 	// blue->yellow->red gradient; a <title> carries the numeric value.
@@ -134,8 +134,8 @@ namespace bench::plot::impl {
 	typename std::enable_if<std::is_arithmetic<T>::value && !std::is_integral<T>::value>
 	::type heatmap(impl::canvas_t& canvas, float x, float y,
 			std::vector<float>& dx, std::vector<float>& dy, float width, float height,
-			const bench::plot::mat<T>& data, const bench::plot::attribute::color_t& /*palette*/ ) {
-		using attribute_t = bench::plot::attribute::element_t;
+			const plot::mat<T>& data, const plot::attribute::color_t& /*palette*/ ) {
+		using attribute_t = plot::attribute::element_t;
 		if( data.rows == 0 || data.cols == 0 ) return;
 
 		double lo = static_cast<double>(*data.begin());
@@ -154,7 +154,7 @@ namespace bench::plot::impl {
 					double value = static_cast<double>(data(i,j));
 					double t = (value - lo) / span;
 					attribute_t cell;
-					cell.color = bench::plot::attribute::color_t{ impl::gradient(t) };
+					cell.color = plot::attribute::color_t{ impl::gradient(t) };
 					cell.label = std::format("{:.4g}", value);
 					canvas.rect( dx[j], dy[i], width, height, 1.5, 1.5, cell );
 				}
@@ -162,7 +162,7 @@ namespace bench::plot::impl {
 	}
 }
 
-namespace bench::plot {
+namespace plot {
 	// ---- the heatmap driver (writes a standalone .svg to an ostream) ----------
 	template <class T, class... arg_t>
 	void heatmap(std::ostream& os, const T& data, arg_t... args ) {
@@ -203,13 +203,13 @@ namespace bench::plot {
 		else
 			height = static_cast<std::size_t>(y_axis.get_y() + offset_y + margin[3]);
 
-		auto canvas = bench::plot::impl::canvas_t(os, width, height + 10, margin);
+		auto canvas = plot::impl::canvas_t(os, width, height + 10, margin);
 		canvas << x_axis; canvas << y_axis;
 
 		if constexpr (title_t::present)    canvas << std::get<title_t::position>( tuple );
 		if constexpr (footnote_t::present) canvas << std::get<footnote_t::position>( tuple );
 
-		bench::plot::attribute::color_t palette{ 0x4060FF };
+		plot::attribute::color_t palette{ 0x4060FF };
 		if constexpr (legend_t::present) {
 			canvas << std::get<legend_t::position>( tuple );
 			auto legend = std::get<legend_t::position>( tuple );

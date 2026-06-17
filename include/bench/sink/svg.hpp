@@ -4,7 +4,7 @@
  * Opt-in SVG result sink. Buffers result rows and, on flush()/destruction,
  * pivots them into a 2-D grid and renders a continuous-gradient heatmap of a
  * chosen metric (mean_throughput by default) via the dependency-free
- * bench::plot layer.
+ * plot layer.
  *
  *   - The type axis is the suffix of result_t::name after '/', matching rows
  *     emitted by the type-dispatch driver ("<name>/<typelabel>"); rows without
@@ -27,7 +27,7 @@
 #include <cstddef>
 
 #include "../bench.hpp"
-#include "../plot/all"
+#include <plot/all>
 
 namespace bench {
 
@@ -100,14 +100,14 @@ namespace bench {
 
 				// degenerate input: still emit a valid (empty) svg document.
 				if(types.empty() || xs.empty()){
-					bench::plot::impl::canvas_t canvas(os, 64, 32, {5,5,5,5});
+					plot::impl::canvas_t canvas(os, 64, 32, {5,5,5,5});
 					return; // dtor writes </svg>
 				}
 
 				const std::size_t rows = types.size();
 				const std::size_t cols = xs.size();
 
-				// dense grid in [type][x] order, row-major for bench::plot::mat.
+				// dense grid in [type][x] order, row-major for plot::mat.
 				std::vector<double> grid(rows * cols, 0.0);
 				for(const auto& r : rows_){
 					const std::string t = type_of(r.name);
@@ -121,14 +121,14 @@ namespace bench {
 				x_labels.reserve(cols);
 				for(auto v : xs) x_labels.push_back(std::to_string(v));
 
-				bench::plot::mat<double> m{ grid.data(), rows, cols };
+				plot::mat<double> m{ grid.data(), rows, cols };
 
 				// title carries the metric being coloured; place it within the canvas.
-				const bench::plot::position title_pos{ std::size_t{4}, std::size_t{10} };
-				bench::plot::heatmap(os, m,
-					bench::plot::axis::x(x_labels),
-					bench::plot::axis::y(types),
-					bench::plot::title(std::string("bench: ") + metric_label(metric_), title_pos) );
+				const plot::position title_pos{ std::size_t{4}, std::size_t{10} };
+				plot::heatmap(os, m,
+					plot::axis::x(x_labels),
+					plot::axis::y(types),
+					plot::title(std::string("bench: ") + metric_label(metric_), title_pos) );
 			}
 
 			std::string filename_ = "report.svg";

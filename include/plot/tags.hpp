@@ -2,12 +2,12 @@
  * MIT License — see LICENSE
  *
  * Empty tag types used to identify the order-independent named arguments of the
- * SVG plotting layer. Ported from plot:: into bench::plot::. Dependency-free.
+ * SVG plotting layer. Ported from plot:: into plot::. Dependency-free.
  */
-#ifndef BENCH_PLOT_TAGS_HPP
-#define BENCH_PLOT_TAGS_HPP
+#ifndef PLOT_TAGS_HPP
+#define PLOT_TAGS_HPP
 
-namespace bench::plot::tag {
+namespace plot::tag {
 	struct width_t{};
 	struct height_t{};
 	struct position_t{};

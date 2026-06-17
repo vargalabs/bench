@@ -3,10 +3,10 @@
  *
  * Small SVG helpers: HTML/XML text escaping, a C++17 is_base_of replacement,
  * and a label-width helper for axis layout. Ported from plot:: into
- * bench::plot::. Dependency-free (standard library only).
+ * plot::. Dependency-free (standard library only).
  */
-#ifndef BENCH_PLOT_UTILS_HPP
-#define BENCH_PLOT_UTILS_HPP
+#ifndef PLOT_UTILS_HPP
+#define PLOT_UTILS_HPP
 
 #include <string>
 #include <vector>
@@ -14,7 +14,7 @@
 #include <type_traits>
 #include <cstddef>
 
-namespace bench::plot::util {
+namespace plot::util {
 	inline std::string html_escape( const std::string& data ){
 		std::string buffer;
 		buffer.reserve(data.size());
@@ -31,7 +31,7 @@ namespace bench::plot::util {
 		return buffer;
 	}
 }
-namespace bench::plot::util::details {
+namespace plot::util::details {
     template <typename Base> std::true_type is_base_of_test_func(Base*);
     template <typename Base> std::false_type is_base_of_test_func(void*);
     template <typename Base, typename Derived>
@@ -45,7 +45,7 @@ namespace bench::plot::util::details {
         public pre_is_base_of<Base, Derived> { };
 }
 
-namespace bench::plot::util {
+namespace plot::util {
 template <typename Base, typename Derived>
 struct is_base_of :
     public std::conditional_t<
@@ -55,7 +55,7 @@ struct is_base_of :
     > { };
 }
 
-namespace bench::plot::utils {
+namespace plot::utils {
 	inline std::size_t size_of_max_value( const std::vector<std::string>& lbl ){
 		auto it = std::max_element( std::begin(lbl), std::end(lbl),
 				[](const auto& a, const auto& b) -> bool {

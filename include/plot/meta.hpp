@@ -5,19 +5,19 @@
  * machinery already shipped in <bench/meta.hpp> (bench::meta::{arg,impl}) rather
  * than carrying a second copy. The plot headers were originally written against
  * `plot::arg` / `plot::impl`, so we re-export the equivalent bench::meta names
- * under bench::plot. Pure C++ — no third-party or platform dependency.
+ * under plot. Pure C++ — no third-party or platform dependency.
  */
-#ifndef BENCH_PLOT_META_HPP
-#define BENCH_PLOT_META_HPP
+#ifndef PLOT_META_HPP
+#define PLOT_META_HPP
 
-#include "../meta.hpp"
+#include <bench/meta.hpp>
 
-namespace bench::plot {
+namespace plot {
 	// order-independent named-argument lookup (tpos / get / getn / required)
 	namespace arg = bench::meta::arg;
 }
 
-namespace bench::plot::impl {
+namespace plot::impl {
 	// feature detection + compile-time tuple iteration used by the plot headers
 	using bench::meta::impl::compat::is_detected;
 	using bench::meta::impl::has_value_type;
