@@ -143,7 +143,10 @@ namespace plot::impl {
 			s.lo = std::log(lmin)/std::log(b);
 			s.hi = std::log(lmax)/std::log(b);
 			if( s.hi <= s.lo ) s.hi = s.lo + 1.0;
-			double t0 = std::floor(s.lo), t1 = std::ceil(s.hi);
+			// nudge by an epsilon before floor/ceil: log10(1000) computes to
+			// 2.9999999996, whose floor is 2 — which would add a spurious decade
+			// (a 100 tick below a data minimum of 1000). The epsilon snaps it.
+			double t0 = std::floor(s.lo + 1e-9), t1 = std::ceil(s.hi - 1e-9);
 			s.lo = t0; s.hi = t1;
 			for(double t = t0; t <= t1 + 0.5; t += 1.0){
 				s.ticks.push_back(t);
@@ -206,17 +209,24 @@ namespace plot::impl {
 		attribute_t tick_attr; tick_attr.color = color_t{ th.fg };
 		tick_attr.font = plot::attribute::font_t{"Ubuntu Mono, monospace", "normal", 9u};
 
+		// the bottom scale sits `label_gap` px below the x-axis; the left scale
+		// uses the SAME gap from the y-axis. Tick text is left-anchored by the
+		// canvas, so the y labels are placed by their (monospace) width so their
+		// right edge lands `label_gap` px left of the axis — matching the bottom.
+		const float label_gap = 14.0f;
+		const float tick_char = 0.60f * 9.0f;   // Ubuntu Mono advance at 9px
 		for(std::size_t i=0;i<sx.ticks.size();++i){
 			float X = px(sx.ticks[i]);
 			canvas.line(X, y0, X, y0+ph, grid_attr);
 			attribute_t a = tick_attr; a.align = plot::attribute::align_t::center;
-			canvas.text(sx.labels[i], std::size_t(X), std::size_t(y0+ph+14), a);
+			canvas.text(sx.labels[i], std::size_t(X), std::size_t(y0+ph+label_gap), a);
 		}
 		for(std::size_t i=0;i<sy.ticks.size();++i){
 			float Y = py(sy.ticks[i]);
 			canvas.line(x0, Y, x0+pw, Y, grid_attr);
 			attribute_t a = tick_attr; a.align = plot::attribute::align_t::right;
-			canvas.text(sy.labels[i], std::size_t(x0-6), std::size_t(Y+3), a);
+			float tx = x0 - label_gap - tick_char * float(sy.labels[i].size());
+			canvas.text(sy.labels[i], std::size_t(tx < 0 ? 0 : tx), std::size_t(Y+3), a);
 		}
 
 		// axis frame (theme.axis).
