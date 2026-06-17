@@ -60,11 +60,18 @@ namespace bench::util {
 			std::uniform_real_distribution<T> dist(T(0), T(1));
 			for (std::size_t i = 0; i < count; ++i)
 				out.push_back(dist(gen));
-		} else { // integral (incl. bool-ish via promotion)
+		} else { // integral
 			using limits = std::numeric_limits<T>;
-			std::uniform_int_distribution<T> dist(limits::min(), limits::max());
+			// std::uniform_int_distribution is only defined for short/int/long/
+			// long long and their unsigned variants — NOT char/bool/int8_t/
+			// uint8_t/char8_t. libstdc++ permits the small types as an extension,
+			// but MSVC enforces the standard (static_assert). Generate through a
+			// wide conforming type and narrow to T.
+			using dist_t = std::conditional_t<std::is_signed_v<T>, long long, unsigned long long>;
+			std::uniform_int_distribution<dist_t> dist(
+				static_cast<dist_t>(limits::min()), static_cast<dist_t>(limits::max()));
 			for (std::size_t i = 0; i < count; ++i)
-				out.push_back(dist(gen));
+				out.push_back(static_cast<T>(dist(gen)));
 		}
 		return out;
 	}
