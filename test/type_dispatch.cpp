@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Steven Varga, Toronto, ON, Canada
  * MIT License — see LICENSE
  *
- * Type-axis test: the compile-time `throughput(types<Ts...>{}, ...)` overload
+ * Type-axis test: the compile-time `throughput<std::tuple<Ts...>>(...)` overload
  * folds a generic benchmark body over a typelist and emits one result row per
  * (type, x-point), with the type label distinguishing the rows.
  */
@@ -21,9 +21,8 @@ int main() {
 
 	std::vector<unsigned char> buf(100'000 * sizeof(double), 1);
 
-	// args intentionally out of order; types<...> is the leading positional arg.
-	bench::throughput(
-		bench::types<int, double, float>{},
+	// args intentionally out of order; the type axis is an explicit tuple arg.
+	bench::throughput<std::tuple<int, double, float>>(
 		bench::sample{su}, sizes, bench::warmup{wu},
 		bench::before_sample{ [&]{ ++before_calls; } },
 		bench::after_sample{  [&]{ ++after_calls;  } },

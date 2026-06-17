@@ -119,15 +119,21 @@ namespace bench::impl {
 		}) / static_cast<T>(data.size());
 		return std::pair<T,T>{mean, std::sqrt(var)};
 	}
+
+	// Detects whether `T` is a specialization of the class template `Tmpl`.
+	// Used to constrain the type-axis throughput overload to `std::tuple<...>`.
+	template <class T, template <class...> class Tmpl>
+	struct is_specialization_of : std::false_type {};
+	template <template <class...> class Tmpl, class... Us>
+	struct is_specialization_of<Tmpl<Us...>, Tmpl> : std::true_type {};
+
+	template <class T>
+	concept is_tuple = is_specialization_of<std::remove_cvref_t<T>, std::tuple>::value;
 }
 
 namespace bench {
 	constexpr std::size_t max_dims = 32;
 	namespace arg = bench::meta::arg;
-
-	// ---- compile-time type axis -------------------------------------------
-	// Marker carrying the list of types to fold the benchmark body over.
-	template <class... Ts> struct types {};
 
 	// ---- named, order-independent arguments -------------------------------
 	using name   = impl::value_t<std::string,   impl::tag::name_t>;
@@ -250,8 +256,8 @@ namespace bench {
 
 	// ---- the throughput driver --------------------------------------------
 	// body signature: double(std::size_t idx, std::size_t n) -> bytes moved.
-	// (The compile-time type-axis overload `throughput(types<Ts...>{}, ...)`
-	//  is added by a separate lane.)
+	// The compile-time type-axis form is the explicit-tuple overload below
+	// (`throughput<std::tuple<Ts...>>(...)`).
 	template <class... args_t>
 	void throughput(args_t... args) {
 		using callback_t = std::function<double(std::size_t, std::size_t)>;
@@ -286,14 +292,22 @@ namespace bench {
 	}
 
 	// ---- the type-axis throughput driver ----------------------------------
-	// Folds the benchmark body over the compile-time typelist `types<Ts...>`.
+	// Folds the benchmark body over the compile-time typelist supplied as an
+	// explicit template argument, a `std::tuple<Ts...>`. Invoke as
+	//   bench::throughput<std::tuple<A,B,C>>(bench::name{...}, ...);
+	// The leading template parameter `Tuple` is constrained (impl::is_tuple) to
+	// be a `std::tuple` specialization so this never collides with the scalar
+	// `throughput(args...)` overload — ordinary calls deduce nothing for `Tuple`
+	// and select the scalar form, while an explicit tuple selects this one.
+	//
 	// `body` is a C++20 generic lambda invoked once per type as
 	//   body.template operator()<T>(std::size_t idx, std::size_t n) -> double
 	// returning bytes moved (same contract as the scalar driver). Honours the
 	// same named args/hooks; one result row per (type, x-point), the row name
 	// suffixed with the type label so types are distinguishable.
-	template <class... Ts, class... args_t>
-	void throughput(types<Ts...>, args_t... args) {
+	template <class Tuple, class... args_t>
+		requires impl::is_tuple<Tuple>
+	void throughput(args_t... args) {
 		using name_t     = typename arg::tpos<impl::tag::name_t,   args_t...>;
 		using x_t        = typename arg::tpos<impl::tag::x_t,      args_t...>;
 		using warmup_t   = typename arg::tpos<impl::tag::warmup_t, args_t...>;
@@ -303,7 +317,7 @@ namespace bench {
 
 		static_assert( name_t::present, "benchmark name must be specified (bench::name{...})" );
 		static_assert( x_t::present,    "x axis must be specified (bench::arg_x{...})" );
-		static_assert( sizeof...(Ts) > 0, "type axis must list at least one type" );
+		static_assert( std::tuple_size_v<Tuple> > 0, "type axis must list at least one type" );
 
 		auto tuple = std::forward_as_tuple(args...);
 		store_t& store = store_t::get();
@@ -320,9 +334,8 @@ namespace bench {
 		// the generic body is the only positional (un-tagged) argument
 		auto&& body = arg::getn<sizeof...(args_t) - 1>(args...);
 
-		using list_t = std::tuple<Ts...>;
-		meta::impl::static_for<list_t>([&](auto I){
-			using T = std::tuple_element_t<decltype(I)::value, list_t>;
+		meta::impl::static_for<Tuple>([&](auto I){
+			using T = std::tuple_element_t<decltype(I)::value, Tuple>;
 			std::string label = impl::type_name<T>();
 			if (label.empty()) label = "T" + std::to_string(decltype(I)::value);
 			const std::string row_name = nm.value + "/" + label;
