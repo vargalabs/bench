@@ -14,5 +14,7 @@
 	#include "canvas.hpp"
 	#include "text.hpp"
 	#include "axis.hpp"
+	#include "theme.hpp"
+	#include "gr.hpp"
 	#include "heatmap.hpp"
 #endif

@@ -50,8 +50,8 @@ int main(){
 		if(out.find("</svg>") == std::string::npos) return 3;
 		// at least one heatmap cell
 		if(out.find("<rect") == std::string::npos) return 4;
-		// 4 cells -> 4 rects, each with a value title
-		if(count(out, "<rect") != 4) return 5;
+		// 4 cells -> 4 cell rects (+1 theme background rect), each cell has a value title
+		if(count(out, "<rect") != 5) return 5;
 		if(count(out, "<title>") != 4) return 6;
 		// axis tick labels present (size axis + type axis)
 		if(out.find(">1000<") == std::string::npos) return 7;
@@ -72,7 +72,8 @@ int main(){
 		const std::string out = os.str();
 		if(out.rfind("<svg", 0) != 0) return 10;
 		if(out.find("</svg>") == std::string::npos) return 11;
-		if(count(out, "<rect") != 2) return 12;
+		// 2 cell rects + 1 theme background rect
+		if(count(out, "<rect") != 3) return 12;
 	}
 
 	// ---- file-backed path emits a non-empty, well-formed document -----------
