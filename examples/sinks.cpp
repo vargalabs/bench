@@ -41,11 +41,11 @@ int main() {
 		bench::name{"fill"},
 		sizes,
 		bench::warmup{3}, bench::sample{20},
-		[&](std::size_t /*idx*/, std::size_t n) -> double {
+		[&](std::size_t /*idx*/, std::size_t n) {
 			for (std::size_t i = 0; i < n; ++i) buf[i] = static_cast<int>(i);
 			volatile int sink = buf[n - 1];
 			(void)sink;
-			return static_cast<double>(n * sizeof(int));
+			return n * sizeof(int) * bench::units::B;
 		});
 
 	// --- replay the collected rows into a CSV file and a JSON file -----------

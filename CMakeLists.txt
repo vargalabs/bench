@@ -13,7 +13,7 @@ target_include_directories(bench INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 	$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
-target_compile_features(bench INTERFACE cxx_std_23)
+target_compile_features(bench INTERFACE cxx_std_20)
 
 # Optional external plot:: library (vargalabs/plots). When present, the opt-in
 # SVG sink example/test (include/bench/sink/svg.hpp -> <plot/all>) is built;

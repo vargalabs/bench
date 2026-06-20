@@ -21,6 +21,7 @@
 #include <numeric>
 #include <memory>
 #include <utility>
+#include "../units.hpp"
 #include "meta.hpp"
 
 namespace bench::impl::tag {
@@ -32,6 +33,7 @@ namespace bench::impl::tag {
 	struct z_t {};
 	struct before_sample_t {};
 	struct after_sample_t {};
+	struct unit_t {};
 }
 
 namespace bench::impl {
@@ -129,6 +131,24 @@ namespace bench::impl {
 
 	template <class T>
 	concept is_tuple = is_specialization_of<std::remove_cvref_t<T>, std::tuple>::value;
+
+	template <bool present_v, class position_t, class default_unit_t>
+	struct selected_unit_t { using type = default_unit_t; };
+	template <class position_t, class default_unit_t>
+	struct selected_unit_t<true, position_t, default_unit_t> { using type = typename position_t::type::unit_type; };
+
+	template <class unit_p>
+	concept runtime_unit_c = units::unit_c<unit_p> &&
+		units::same_dimension(std::remove_cvref_t<unit_p>::dimension, units::time_dimension);
+	template <class unit_p>
+	concept throughput_unit_c = units::unit_c<unit_p> &&
+		units::same_dimension(std::remove_cvref_t<unit_p>::dimension, decltype(units::B_per_s)::dimension);
+	template <class unit_p>
+	concept rate_unit_c = units::unit_c<unit_p> &&
+		units::same_dimension(std::remove_cvref_t<unit_p>::dimension, decltype(units::op_per_s)::dimension);
+	template <class unit_p>
+	concept latency_unit_c = units::unit_c<unit_p> &&
+		units::same_dimension(std::remove_cvref_t<unit_p>::dimension, decltype(units::ns_per_op)::dimension);
 }
 
 namespace bench {
@@ -149,17 +169,45 @@ namespace bench {
 	using before_sample = impl::value_t<std::function<void()>, impl::tag::before_sample_t>;
 	using after_sample  = impl::value_t<std::function<void()>, impl::tag::after_sample_t>;
 
+	struct ok_t {};
+	using ok = ok_t;
+
+	template <units::unit_c unit_p>
+	struct unit {
+		using value_type = impl::tag::unit_t;
+		using unit_type = std::remove_cvref_t<unit_p>;
+		unit_type value;
+	};
+	template <units::unit_c unit_p>
+	unit(unit_p) -> unit<unit_p>;
+
+	inline std::string_view direction_name(direction_t direction){
+		switch(direction){
+			case direction_t::lower_is_better: return "lower_is_better";
+			case direction_t::higher_is_better: return "higher_is_better";
+			case direction_t::neutral:
+			default: return "neutral";
+		}
+	}
+
 	// ---- result record (plain POD; was the HDF5-registered test_t) ---------
 	struct result_t {
 		static constexpr std::size_t max_name = 64;
+		static constexpr std::size_t max_metric = 32;
+		static constexpr std::size_t max_unit = 16;
 		std::uint16_t warmup;
 		std::uint16_t sample;
 		std::uint64_t x;
 		double mean_runtime;     // microseconds
 		double std_runtime;      // microseconds
-		double mean_throughput;  // bytes / microsecond (== MB/s)
-		double std_throughput;
+		double mean_throughput;  // compatibility alias for mean_metric
+		double std_throughput;   // compatibility alias for std_metric
+		double mean_metric;
+		double std_metric;
+		direction_t direction;
 		char   name[max_name];
+		char   metric[max_metric];
+		char   unit[max_unit];
 	};
 
 	// ---- pluggable result sink --------------------------------------------
@@ -175,14 +223,12 @@ namespace bench {
 		void write(const result_t& r) override {
 			if(!header){
 				std::printf("[name                                              ]"
-					"[total events][Mi events/s] [ms runtime / stddev] [    MiB/s / stddev ]\n");
+					"[total events][metric/unit        ] [ms runtime / stddev] [     mean / stddev ]\n");
 				header = true;
 			}
-			std::printf("%-52s %12llu %12.4f  %11.2f  %8.3f %10.2f   %7.1f\n",
-				r.name, static_cast<unsigned long long>(r.x),
-				r.mean_runtime > 0 ? r.x / r.mean_runtime : 0.0,
-				r.mean_runtime/1000.0, r.std_runtime/1000.0,
-				r.mean_throughput, r.std_throughput);
+			std::printf("%-52s %12llu %-9s/%-8s %11.2f  %8.3f %10.2f   %7.1f\n",
+				r.name, static_cast<unsigned long long>(r.x), r.metric, r.unit,
+				r.mean_runtime/1000.0, r.std_runtime/1000.0, r.mean_metric, r.std_metric);
 		}
 	};
 
@@ -198,15 +244,27 @@ namespace bench {
 		template<class V, class T>
 		void push(const std::string& nm, std::uint64_t x, V wu, V su,
 				  const std::pair<T,T>& time, const std::pair<T,T>& tp ) {
+			push(nm, x, wu, su, "throughput", "B/us", direction_t::higher_is_better, time, tp);
+		}
+
+		template<class V, class T>
+		void push(const std::string& nm, std::uint64_t x, V wu, V su,
+				  std::string_view metric, std::string_view unit, direction_t direction,
+				  const std::pair<T,T>& time, const std::pair<T,T>& value ) {
 			result_t item{};
 			item.warmup = wu;
 			item.sample = su;
 			item.x = x;
 			item.mean_runtime = time.first;
 			item.std_runtime  = time.second;
-			item.mean_throughput = tp.first;
-			item.std_throughput  = tp.second;
+			item.mean_throughput = value.first;
+			item.std_throughput  = value.second;
+			item.mean_metric = value.first;
+			item.std_metric = value.second;
+			item.direction = direction;
 			std::strncpy(item.name, nm.data(), result_t::max_name - 1);
+			std::strncpy(item.metric, metric.data(), result_t::max_metric - 1);
+			std::strncpy(item.unit, unit.data(), result_t::max_unit - 1);
 			list_.push_back(item);
 		}
 
@@ -225,70 +283,257 @@ namespace bench {
 	inline void set_sink(std::shared_ptr<sink> s){ store_t::get().set_sink(std::move(s)); }
 
 	// ---- shared per-axis timing loop --------------------------------------
-	// `fn(j, n)` returns bytes moved; `before`/`after` are the (optional) sample
-	// hooks. Pushes one result_t row per x-axis point. Single source of truth so
-	// the scalar and type-axis drivers time identically.
 	namespace impl {
-		template <class fn_t, class before_t, class after_t>
+		template <class T>
+		concept byte_quantity_c = units::quantity_c<T> &&
+			units::same_dimension(std::remove_cvref_t<T>::unit_type::dimension, units::bytes_dimension);
+		template <class T>
+		concept op_quantity_c = units::quantity_c<T> &&
+			units::same_dimension(std::remove_cvref_t<T>::unit_type::dimension, units::operation_dimension);
+
+		template <class unit_t>
+		auto unit_label(){
+			return units::unit_symbol(unit_t{});
+		}
+
+		template <class unit_t, class work_t, class elapsed_t>
+		auto runtime_metric(const work_t&, elapsed_t elapsed){
+			return elapsed.in(unit_t{});
+		}
+
+		template <class unit_t, class work_t, class elapsed_t>
+		auto throughput_metric(const work_t& work, elapsed_t elapsed){
+			static_assert(byte_quantity_c<decltype(work)>, "bench::throughput body must return a byte quantity");
+			return (work / elapsed).in(unit_t{});
+		}
+
+		template <class unit_t, class work_t, class elapsed_t>
+		auto rate_metric(const work_t& work, elapsed_t elapsed){
+			static_assert(op_quantity_c<decltype(work)>, "bench::rate body must return an operation quantity");
+			return (work / elapsed).in(unit_t{});
+		}
+
+		template <class unit_t, class work_t, class elapsed_t>
+		auto latency_metric(const work_t& work, elapsed_t elapsed){
+			static_assert(op_quantity_c<decltype(work)>, "bench::latency body must return an operation quantity");
+			return (elapsed / work).in(unit_t{});
+		}
+
+		template <class unit_t, class fn_t, class before_t, class after_t, class metric_fn_t>
 		void run_axis(store_t& store, const std::string& nm,
 					  const arg_x& x, std::uint16_t wu, std::uint16_t su,
-					  fn_t&& fn, before_t&& before, after_t&& after) {
-			std::vector<double> time, tput;
+					  std::string_view metric, std::string_view unit, direction_t direction,
+					  fn_t&& fn, before_t&& before, after_t&& after, metric_fn_t&& metric_fn) {
+			std::vector<double> time, values;
 			for(std::size_t j=0; j<x.size(); j++){
-				for(std::uint16_t i=0; i<wu; i++){ volatile double s = fn(j, x[j]); (void)s; }
-				time.clear(); tput.clear();
+				for(std::uint16_t i=0; i<wu; i++) (void)fn(j, x[j]);
+				time.clear(); values.clear();
 				for(std::uint16_t i=0; i<su; i++) {
 					namespace cl = std::chrono;
 					before();
 					const auto start = cl::steady_clock::now();
-						const double transfer = fn(j, x[j]);
+						const auto work = fn(j, x[j]);
 						after();
 					const auto end = cl::steady_clock::now();
 					const double delta_us = static_cast<double>(
 						cl::duration_cast<cl::nanoseconds>(end - start).count()) / 1'000.0;
+					const auto elapsed = delta_us * units::us;
 					time.push_back(delta_us);
-					tput.push_back(delta_us > 0 ? transfer / delta_us : 0.0);
+					values.push_back(delta_us > 0 ? metric_fn(work, elapsed) : 0.0);
 				}
-				store.push(nm, x[j], wu, su, bench::impl::stats(time), bench::impl::stats(tput));
+				store.push(nm, x[j], wu, su, metric, unit, direction, bench::impl::stats(time), bench::impl::stats(values));
 			}
 		}
 	}
 
+	namespace impl {
+		template <class default_unit_t, class... args_t>
+		using display_unit_t = typename selected_unit_t<
+			arg::tpos<impl::tag::unit_t, args_t...>::present,
+			typename arg::tpos<impl::tag::unit_t, args_t...>,
+			default_unit_t>::type;
+
+		template <class unit_t, class... args_t>
+		void run_runtime(args_t... args) {
+			static_assert(runtime_unit_c<unit_t>, "bench::runtime display unit must be a time unit");
+			using name_t     = typename arg::tpos<impl::tag::name_t,   args_t...>;
+			using x_t        = typename arg::tpos<impl::tag::x_t,      args_t...>;
+			using warmup_t   = typename arg::tpos<impl::tag::warmup_t, args_t...>;
+			using sample_t   = typename arg::tpos<impl::tag::sample_t, args_t...>;
+			using before_t   = typename arg::tpos<impl::tag::before_sample_t, args_t...>;
+			using after_t    = typename arg::tpos<impl::tag::after_sample_t,  args_t...>;
+			static_assert( name_t::present, "benchmark name must be specified (bench::name{...})" );
+			static_assert( x_t::present,    "x axis must be specified (bench::arg_x{...})" );
+
+			auto tuple = std::forward_as_tuple(args...);
+			store_t& store = store_t::get();
+			name nm = std::get<name_t::position>(tuple);
+			arg_x x = std::get<x_t::position>(tuple);
+			std::uint16_t wu = 3, su = 20;
+			if constexpr(warmup_t::present) wu = std::get<warmup_t::position>(tuple).value;
+			if constexpr(sample_t::present) su = std::get<sample_t::position>(tuple).value;
+
+			const auto before = [&]{ if constexpr(before_t::present) std::get<before_t::position>(tuple).value(); };
+			const auto after  = [&]{ if constexpr(after_t::present)  std::get<after_t::position>(tuple).value();  };
+			auto&& body = arg::getn<sizeof...(args_t) - 1>(args...);
+
+			impl::run_axis<unit_t>(store, nm.value, x, wu, su, "runtime", impl::unit_label<unit_t>(),
+				direction_t::lower_is_better, body, before, after,
+				[](const auto& work, auto elapsed){ return impl::runtime_metric<unit_t>(work, elapsed); });
+		}
+
+		template <class unit_t, class... args_t>
+		void run_throughput(args_t... args) {
+			static_assert(throughput_unit_c<unit_t>, "bench::throughput display unit must be a byte/time unit");
+			using name_t     = typename arg::tpos<impl::tag::name_t,   args_t...>;
+			using x_t        = typename arg::tpos<impl::tag::x_t,      args_t...>;
+			using warmup_t   = typename arg::tpos<impl::tag::warmup_t, args_t...>;
+			using sample_t   = typename arg::tpos<impl::tag::sample_t, args_t...>;
+			using before_t   = typename arg::tpos<impl::tag::before_sample_t, args_t...>;
+			using after_t    = typename arg::tpos<impl::tag::after_sample_t,  args_t...>;
+			static_assert( name_t::present, "benchmark name must be specified (bench::name{...})" );
+			static_assert( x_t::present,    "x axis must be specified (bench::arg_x{...})" );
+
+			auto tuple = std::forward_as_tuple(args...);
+			store_t& store = store_t::get();
+			name nm = std::get<name_t::position>(tuple);
+			arg_x x = std::get<x_t::position>(tuple);
+			std::uint16_t wu = 3, su = 20;
+			if constexpr(warmup_t::present) wu = std::get<warmup_t::position>(tuple).value;
+			if constexpr(sample_t::present) su = std::get<sample_t::position>(tuple).value;
+
+			const auto before = [&]{ if constexpr(before_t::present) std::get<before_t::position>(tuple).value(); };
+			const auto after  = [&]{ if constexpr(after_t::present)  std::get<after_t::position>(tuple).value();  };
+			auto&& body = arg::getn<sizeof...(args_t) - 1>(args...);
+
+			impl::run_axis<unit_t>(store, nm.value, x, wu, su, "throughput", impl::unit_label<unit_t>(),
+				direction_t::higher_is_better, body, before, after,
+				[](const auto& work, auto elapsed){ return impl::throughput_metric<unit_t>(work, elapsed); });
+		}
+
+		template <class unit_t, class... args_t>
+		void run_rate(args_t... args) {
+			static_assert(rate_unit_c<unit_t>, "bench::rate display unit must be an operation/time unit");
+			using name_t     = typename arg::tpos<impl::tag::name_t,   args_t...>;
+			using x_t        = typename arg::tpos<impl::tag::x_t,      args_t...>;
+			using warmup_t   = typename arg::tpos<impl::tag::warmup_t, args_t...>;
+			using sample_t   = typename arg::tpos<impl::tag::sample_t, args_t...>;
+			using before_t   = typename arg::tpos<impl::tag::before_sample_t, args_t...>;
+			using after_t    = typename arg::tpos<impl::tag::after_sample_t,  args_t...>;
+			static_assert( name_t::present, "benchmark name must be specified (bench::name{...})" );
+			static_assert( x_t::present,    "x axis must be specified (bench::arg_x{...})" );
+
+			auto tuple = std::forward_as_tuple(args...);
+			store_t& store = store_t::get();
+			name nm = std::get<name_t::position>(tuple);
+			arg_x x = std::get<x_t::position>(tuple);
+			std::uint16_t wu = 3, su = 20;
+			if constexpr(warmup_t::present) wu = std::get<warmup_t::position>(tuple).value;
+			if constexpr(sample_t::present) su = std::get<sample_t::position>(tuple).value;
+
+			const auto before = [&]{ if constexpr(before_t::present) std::get<before_t::position>(tuple).value(); };
+			const auto after  = [&]{ if constexpr(after_t::present)  std::get<after_t::position>(tuple).value();  };
+			auto&& body = arg::getn<sizeof...(args_t) - 1>(args...);
+
+			impl::run_axis<unit_t>(store, nm.value, x, wu, su, "rate", impl::unit_label<unit_t>(),
+				direction_t::higher_is_better, body, before, after,
+				[](const auto& work, auto elapsed){ return impl::rate_metric<unit_t>(work, elapsed); });
+		}
+
+		template <class unit_t, class... args_t>
+		void run_latency(args_t... args) {
+			static_assert(latency_unit_c<unit_t>, "bench::latency display unit must be a time/operation unit");
+			using name_t     = typename arg::tpos<impl::tag::name_t,   args_t...>;
+			using x_t        = typename arg::tpos<impl::tag::x_t,      args_t...>;
+			using warmup_t   = typename arg::tpos<impl::tag::warmup_t, args_t...>;
+			using sample_t   = typename arg::tpos<impl::tag::sample_t, args_t...>;
+			using before_t   = typename arg::tpos<impl::tag::before_sample_t, args_t...>;
+			using after_t    = typename arg::tpos<impl::tag::after_sample_t,  args_t...>;
+			static_assert( name_t::present, "benchmark name must be specified (bench::name{...})" );
+			static_assert( x_t::present,    "x axis must be specified (bench::arg_x{...})" );
+
+			auto tuple = std::forward_as_tuple(args...);
+			store_t& store = store_t::get();
+			name nm = std::get<name_t::position>(tuple);
+			arg_x x = std::get<x_t::position>(tuple);
+			std::uint16_t wu = 3, su = 20;
+			if constexpr(warmup_t::present) wu = std::get<warmup_t::position>(tuple).value;
+			if constexpr(sample_t::present) su = std::get<sample_t::position>(tuple).value;
+
+			const auto before = [&]{ if constexpr(before_t::present) std::get<before_t::position>(tuple).value(); };
+			const auto after  = [&]{ if constexpr(after_t::present)  std::get<after_t::position>(tuple).value();  };
+			auto&& body = arg::getn<sizeof...(args_t) - 1>(args...);
+
+			impl::run_axis<unit_t>(store, nm.value, x, wu, su, "latency", impl::unit_label<unit_t>(),
+				direction_t::lower_is_better, body, before, after,
+				[](const auto& work, auto elapsed){ return impl::latency_metric<unit_t>(work, elapsed); });
+		}
+	}
+
+	template <class... args_t>
+	void runtime(args_t... args) {
+		using unit_t = impl::display_unit_t<decltype(units::ms), args_t...>;
+		impl::run_runtime<unit_t>(args...);
+	}
+
 	// ---- the throughput driver --------------------------------------------
-	// body signature: double(std::size_t idx, std::size_t n) -> bytes moved.
+	// body signature: quantity_t<bytes>(std::size_t idx, std::size_t n).
 	// The compile-time type-axis form is the explicit-tuple overload below
 	// (`throughput<std::tuple<Ts...>>(...)`).
 	template <class... args_t>
 	void throughput(args_t... args) {
-		using callback_t = std::function<double(std::size_t, std::size_t)>;
+		using unit_t = impl::display_unit_t<decltype(units::MiB_per_s), args_t...>;
+		impl::run_throughput<unit_t>(args...);
+	}
 
+	template <class... args_t>
+	void rate(args_t... args) {
+		using unit_t = impl::display_unit_t<decltype(units::op_per_s), args_t...>;
+		impl::run_rate<unit_t>(args...);
+	}
+
+	template <class... args_t>
+	void latency(args_t... args) {
+		using unit_t = impl::display_unit_t<decltype(units::ns_per_op), args_t...>;
+		impl::run_latency<unit_t>(args...);
+	}
+
+	template <class Tuple, class... args_t>
+		requires impl::is_tuple<Tuple>
+	void runtime(args_t... args) {
+		using unit_t = impl::display_unit_t<decltype(units::ms), args_t...>;
 		using name_t     = typename arg::tpos<impl::tag::name_t,   args_t...>;
 		using x_t        = typename arg::tpos<impl::tag::x_t,      args_t...>;
 		using warmup_t   = typename arg::tpos<impl::tag::warmup_t, args_t...>;
 		using sample_t   = typename arg::tpos<impl::tag::sample_t, args_t...>;
 		using before_t   = typename arg::tpos<impl::tag::before_sample_t, args_t...>;
 		using after_t    = typename arg::tpos<impl::tag::after_sample_t,  args_t...>;
-		using callback_f = typename arg::tpos<callback_t, args_t...>;
-
-		static_assert( name_t::present,     "benchmark name must be specified (bench::name{...})" );
-		static_assert( x_t::present,        "x axis must be specified (bench::arg_x{...})" );
-		static_assert( callback_f::present, "benchmark body callback must be specified" );
+		static_assert( impl::runtime_unit_c<unit_t>, "bench::runtime display unit must be a time unit" );
+		static_assert( name_t::present, "benchmark name must be specified (bench::name{...})" );
+		static_assert( x_t::present,    "x axis must be specified (bench::arg_x{...})" );
+		static_assert( std::tuple_size_v<Tuple> > 0, "type axis must list at least one type" );
 
 		auto tuple = std::forward_as_tuple(args...);
 		store_t& store = store_t::get();
-
 		name nm = std::get<name_t::position>(tuple);
 		arg_x x = std::get<x_t::position>(tuple);
 		std::uint16_t wu = 3, su = 20;
 		if constexpr(warmup_t::present) wu = std::get<warmup_t::position>(tuple).value;
 		if constexpr(sample_t::present) su = std::get<sample_t::position>(tuple).value;
-
-		callback_t fn = std::get<callback_f::position>(tuple);
-
 		const auto before = [&]{ if constexpr(before_t::present) std::get<before_t::position>(tuple).value(); };
 		const auto after  = [&]{ if constexpr(after_t::present)  std::get<after_t::position>(tuple).value();  };
+		auto&& body = arg::getn<sizeof...(args_t) - 1>(args...);
 
-		impl::run_axis(store, nm.value, x, wu, su, fn, before, after);
+		meta::impl::static_for<Tuple>([&](auto I){
+			using T = std::tuple_element_t<decltype(I)::value, Tuple>;
+			std::string label = impl::type_name<T>();
+			if (label.empty()) label = "T" + std::to_string(decltype(I)::value);
+			const std::string row_name = nm.value + "/" + label;
+			impl::run_axis<unit_t>(store, row_name, x, wu, su, "runtime", impl::unit_label<unit_t>(),
+				direction_t::lower_is_better,
+				[&](std::size_t idx, std::size_t n){ return body.template operator()<T>(idx, n); }, before, after,
+				[](const auto& work, auto elapsed){ return impl::runtime_metric<unit_t>(work, elapsed); });
+		});
 	}
 
 	// ---- the type-axis throughput driver ----------------------------------
@@ -301,13 +546,14 @@ namespace bench {
 	// and select the scalar form, while an explicit tuple selects this one.
 	//
 	// `body` is a C++20 generic lambda invoked once per type as
-	//   body.template operator()<T>(std::size_t idx, std::size_t n) -> double
-	// returning bytes moved (same contract as the scalar driver). Honours the
+	//   body.template operator()<T>(std::size_t idx, std::size_t n)
+	// returning a byte quantity. Honours the
 	// same named args/hooks; one result row per (type, x-point), the row name
 	// suffixed with the type label so types are distinguishable.
 	template <class Tuple, class... args_t>
 		requires impl::is_tuple<Tuple>
 	void throughput(args_t... args) {
+		using unit_t = impl::display_unit_t<decltype(units::MiB_per_s), args_t...>;
 		using name_t     = typename arg::tpos<impl::tag::name_t,   args_t...>;
 		using x_t        = typename arg::tpos<impl::tag::x_t,      args_t...>;
 		using warmup_t   = typename arg::tpos<impl::tag::warmup_t, args_t...>;
@@ -315,6 +561,7 @@ namespace bench {
 		using before_t   = typename arg::tpos<impl::tag::before_sample_t, args_t...>;
 		using after_t    = typename arg::tpos<impl::tag::after_sample_t,  args_t...>;
 
+		static_assert( impl::throughput_unit_c<unit_t>, "bench::throughput display unit must be a byte/time unit" );
 		static_assert( name_t::present, "benchmark name must be specified (bench::name{...})" );
 		static_assert( x_t::present,    "x axis must be specified (bench::arg_x{...})" );
 		static_assert( std::tuple_size_v<Tuple> > 0, "type axis must list at least one type" );
@@ -340,10 +587,86 @@ namespace bench {
 			if (label.empty()) label = "T" + std::to_string(decltype(I)::value);
 			const std::string row_name = nm.value + "/" + label;
 
-			impl::run_axis(store, row_name, x, wu, su,
-				[&](std::size_t idx, std::size_t n) -> double {
-					return body.template operator()<T>(idx, n);
-				}, before, after);
+			impl::run_axis<unit_t>(store, row_name, x, wu, su, "throughput", impl::unit_label<unit_t>(),
+				direction_t::higher_is_better,
+				[&](std::size_t idx, std::size_t n){ return body.template operator()<T>(idx, n); }, before, after,
+				[](const auto& work, auto elapsed){ return impl::throughput_metric<unit_t>(work, elapsed); });
+		});
+	}
+
+	template <class Tuple, class... args_t>
+		requires impl::is_tuple<Tuple>
+	void rate(args_t... args) {
+		using unit_t = impl::display_unit_t<decltype(units::op_per_s), args_t...>;
+		using name_t     = typename arg::tpos<impl::tag::name_t,   args_t...>;
+		using x_t        = typename arg::tpos<impl::tag::x_t,      args_t...>;
+		using warmup_t   = typename arg::tpos<impl::tag::warmup_t, args_t...>;
+		using sample_t   = typename arg::tpos<impl::tag::sample_t, args_t...>;
+		using before_t   = typename arg::tpos<impl::tag::before_sample_t, args_t...>;
+		using after_t    = typename arg::tpos<impl::tag::after_sample_t,  args_t...>;
+		static_assert( impl::rate_unit_c<unit_t>, "bench::rate display unit must be an operation/time unit" );
+		static_assert( name_t::present, "benchmark name must be specified (bench::name{...})" );
+		static_assert( x_t::present,    "x axis must be specified (bench::arg_x{...})" );
+		static_assert( std::tuple_size_v<Tuple> > 0, "type axis must list at least one type" );
+
+		auto tuple = std::forward_as_tuple(args...);
+		store_t& store = store_t::get();
+		name nm = std::get<name_t::position>(tuple);
+		arg_x x = std::get<x_t::position>(tuple);
+		std::uint16_t wu = 3, su = 20;
+		if constexpr(warmup_t::present) wu = std::get<warmup_t::position>(tuple).value;
+		if constexpr(sample_t::present) su = std::get<sample_t::position>(tuple).value;
+		const auto before = [&]{ if constexpr(before_t::present) std::get<before_t::position>(tuple).value(); };
+		const auto after  = [&]{ if constexpr(after_t::present)  std::get<after_t::position>(tuple).value();  };
+		auto&& body = arg::getn<sizeof...(args_t) - 1>(args...);
+
+		meta::impl::static_for<Tuple>([&](auto I){
+			using T = std::tuple_element_t<decltype(I)::value, Tuple>;
+			std::string label = impl::type_name<T>();
+			if (label.empty()) label = "T" + std::to_string(decltype(I)::value);
+			const std::string row_name = nm.value + "/" + label;
+			impl::run_axis<unit_t>(store, row_name, x, wu, su, "rate", impl::unit_label<unit_t>(),
+				direction_t::higher_is_better,
+				[&](std::size_t idx, std::size_t n){ return body.template operator()<T>(idx, n); }, before, after,
+				[](const auto& work, auto elapsed){ return impl::rate_metric<unit_t>(work, elapsed); });
+		});
+	}
+
+	template <class Tuple, class... args_t>
+		requires impl::is_tuple<Tuple>
+	void latency(args_t... args) {
+		using unit_t = impl::display_unit_t<decltype(units::ns_per_op), args_t...>;
+		using name_t     = typename arg::tpos<impl::tag::name_t,   args_t...>;
+		using x_t        = typename arg::tpos<impl::tag::x_t,      args_t...>;
+		using warmup_t   = typename arg::tpos<impl::tag::warmup_t, args_t...>;
+		using sample_t   = typename arg::tpos<impl::tag::sample_t, args_t...>;
+		using before_t   = typename arg::tpos<impl::tag::before_sample_t, args_t...>;
+		using after_t    = typename arg::tpos<impl::tag::after_sample_t,  args_t...>;
+		static_assert( impl::latency_unit_c<unit_t>, "bench::latency display unit must be a time/operation unit" );
+		static_assert( name_t::present, "benchmark name must be specified (bench::name{...})" );
+		static_assert( x_t::present,    "x axis must be specified (bench::arg_x{...})" );
+		static_assert( std::tuple_size_v<Tuple> > 0, "type axis must list at least one type" );
+
+		auto tuple = std::forward_as_tuple(args...);
+		store_t& store = store_t::get();
+		name nm = std::get<name_t::position>(tuple);
+		arg_x x = std::get<x_t::position>(tuple);
+		std::uint16_t wu = 3, su = 20;
+		if constexpr(warmup_t::present) wu = std::get<warmup_t::position>(tuple).value;
+		if constexpr(sample_t::present) su = std::get<sample_t::position>(tuple).value;
+		const auto before = [&]{ if constexpr(before_t::present) std::get<before_t::position>(tuple).value(); };
+		const auto after  = [&]{ if constexpr(after_t::present)  std::get<after_t::position>(tuple).value();  };
+		auto&& body = arg::getn<sizeof...(args_t) - 1>(args...);
+
+		meta::impl::static_for<Tuple>([&](auto I){
+			using T = std::tuple_element_t<decltype(I)::value, Tuple>;
+			std::string label = impl::type_name<T>();
+			if (label.empty()) label = "T" + std::to_string(decltype(I)::value);
+			const std::string row_name = nm.value + "/" + label;
+			impl::run_axis<unit_t>(store, row_name, x, wu, su, "latency", impl::unit_label<unit_t>(),
+				direction_t::lower_is_better,
+				[&](std::size_t idx, std::size_t n){ return body.template operator()<T>(idx, n); }, before, after,
+				[](const auto& work, auto elapsed){ return impl::latency_metric<unit_t>(work, elapsed); });
 		});
 	}
 }

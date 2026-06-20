@@ -20,7 +20,11 @@ namespace {
 		r.warmup = 2; r.sample = 5; r.x = x;
 		r.mean_runtime = 1.0; r.std_runtime = 0.1;
 		r.mean_throughput = mt; r.std_throughput = mt * 0.1;
+		r.mean_metric = mt; r.std_metric = mt * 0.1;
+		r.direction = bench::direction_t::higher_is_better;
 		std::strncpy(r.name, name, bench::result_t::max_name - 1);
+		std::strncpy(r.metric, "throughput", bench::result_t::max_metric - 1);
+		std::strncpy(r.unit, "MiB/s", bench::result_t::max_unit - 1);
 		return r;
 	}
 

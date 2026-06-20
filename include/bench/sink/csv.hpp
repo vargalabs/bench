@@ -21,12 +21,18 @@ namespace bench {
 
 		void write(const result_t& r) override {
 			if(!header_){
-				os_ << "name,warmup,sample,x,"
-					   "mean_runtime,std_runtime,"
-					   "mean_throughput,std_throughput\n";
+				os_ << "name,metric,unit,direction,warmup,sample,x,"
+						   "mean_runtime,std_runtime,"
+						   "mean_throughput,std_throughput,mean_metric,std_metric\n";
 				header_ = true;
 			}
 			quote(r.name);
+			os_ << ',';
+			quote(r.metric);
+			os_ << ',';
+			quote(r.unit);
+			os_ << ',';
+			quote(direction_name(r.direction).data());
 			os_ << ','
 				<< r.warmup << ','
 				<< r.sample << ','
@@ -34,7 +40,9 @@ namespace bench {
 				<< r.mean_runtime << ','
 				<< r.std_runtime << ','
 				<< r.mean_throughput << ','
-				<< r.std_throughput << '\n';
+				<< r.std_throughput << ','
+				<< r.mean_metric << ','
+				<< r.std_metric << '\n';
 		}
 
 		void flush() override { os_.flush(); }

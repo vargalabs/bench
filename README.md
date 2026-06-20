@@ -30,9 +30,10 @@ int main() {
   bench::throughput<std::tuple<int, double, float>>(
     bench::name{"write"}, record_size,           // named args, any order
     bench::warmup{3}, bench::sample{10},
-    [&]<class T>(std::size_t idx, std::size_t n) -> double {
+    bench::unit{bench::units::MiB / bench::units::s},
+    [&]<class T>(std::size_t idx, std::size_t n) {
       // ... do work for n elements of T ...
-      return n * sizeof(T);                       // bytes moved -> throughput
+      return n * sizeof(T) * bench::units::B;      // typed bytes moved
     });
 }
 ```
@@ -47,13 +48,17 @@ throughput.
   `static_for`, each type fully specialized (no type erasure), yielding one row
   per `(type, size)`.
 - **Order-independent named args** — `bench::name`, `bench::arg_x` (size sweep),
-  `bench::warmup`, `bench::sample`, and the `bench::before_sample` /
-  `bench::after_sample` hooks may be passed in any order.
+  `bench::warmup`, `bench::sample`, `bench::unit`, and the
+  `bench::before_sample` / `bench::after_sample` hooks may be passed in any
+  order.
+- **Typed metric vocabulary** — `bench::runtime`, `bench::throughput`,
+  `bench::rate`, and `bench::latency` constrain display units at compile time
+  and carry metric labels for text/CSV/JSON/SVG reports.
 - **Pluggable sinks** — the default `bench::stdout_sink` prints a table; opt-in
   `bench::csv_sink` and `bench::json_sink` emit to any `std::ostream`, and the
   opt-in `bench::svg_sink` renders heatmaps via the external `plot` library.
   Swap with `bench::set_sink(...)`.
-- **Dependency-free core** — no HDF5, zlib, or boost; just a C++23 toolchain.
+- **Dependency-free core** — no HDF5, zlib, or boost; just a C++20 toolchain.
 
 ## Build & install
 

@@ -3,7 +3,7 @@
  *
  * Opt-in SVG result sink. Buffers result rows and, on flush()/destruction,
  * pivots them into a 2-D grid and renders a continuous-gradient heatmap of a
- * chosen metric (mean_throughput by default) via the dependency-free
+	 * chosen metric (mean_metric by default) via the dependency-free
  * plot layer.
  *
  *   - The type axis is the suffix of result_t::name after '/', matching rows
@@ -34,9 +34,9 @@ namespace bench {
 	// Buffers results, then renders one continuous heatmap on flush()/destruction.
 	struct svg_sink : sink {
 		// which metric drives the colour of each cell
-		enum class metric { mean_throughput, std_throughput, mean_runtime, std_runtime };
+		enum class metric { mean_metric, std_metric, mean_runtime, std_runtime, mean_throughput = mean_metric, std_throughput = std_metric };
 
-		explicit svg_sink(std::string filename = "report.svg", metric m = metric::mean_throughput)
+		explicit svg_sink(std::string filename = "report.svg", metric m = metric::mean_metric)
 			: filename_(std::move(filename)), metric_(m) {}
 		// render into a borrowed stream instead of a file
 		explicit svg_sink(std::ostream& os, metric m = metric::mean_throughput)
@@ -67,21 +67,21 @@ namespace bench {
 
 			double value_of(const result_t& r) const {
 				switch(metric_){
-					case metric::std_throughput: return r.std_throughput;
+					case metric::std_metric: return r.std_metric;
 					case metric::mean_runtime:   return r.mean_runtime;
 					case metric::std_runtime:    return r.std_runtime;
-					case metric::mean_throughput:
-					default:                     return r.mean_throughput;
+					case metric::mean_metric:
+					default:                     return r.mean_metric;
 				}
 			}
 
 			static const char* metric_label(metric m){
 				switch(m){
-					case metric::std_throughput: return "std MB/s";
+					case metric::std_metric: return "std metric";
 					case metric::mean_runtime:   return "mean us";
 					case metric::std_runtime:    return "std us";
-					case metric::mean_throughput:
-					default:                     return "mean MB/s";
+					case metric::mean_metric:
+					default:                     return "mean metric";
 				}
 			}
 
@@ -133,7 +133,7 @@ namespace bench {
 
 			std::string filename_ = "report.svg";
 			std::ostream* os_ = nullptr;
-			metric metric_ = metric::mean_throughput;
+			metric metric_ = metric::mean_metric;
 			std::vector<result_t> rows_;
 			bool emitted_ = false;
 	};

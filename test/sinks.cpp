@@ -24,7 +24,12 @@ namespace {
 		r.std_runtime     = 0.25;
 		r.mean_throughput = 100.0;
 		r.std_throughput  = 3.5;
+		r.mean_metric = 100.0;
+		r.std_metric = 3.5;
+		r.direction = bench::direction_t::higher_is_better;
 		std::strncpy(r.name, name, bench::result_t::max_name - 1);
+		std::strncpy(r.metric, "throughput", bench::result_t::max_metric - 1);
+		std::strncpy(r.unit, "MiB/s", bench::result_t::max_unit - 1);
 		return r;
 	}
 
@@ -51,8 +56,8 @@ int main(){
 		const std::string out = os.str();
 
 		// stable header on the first line
-		if(out.rfind("name,warmup,sample,x,"
-				"mean_runtime,std_runtime,mean_throughput,std_throughput\n", 0) != 0)
+		if(out.rfind("name,metric,unit,direction,warmup,sample,x,"
+				"mean_runtime,std_runtime,mean_throughput,std_throughput,mean_metric,std_metric\n", 0) != 0)
 			return 1;
 		// header + 2 data rows => 3 newlines
 		if(count(out, "\n") != 3) return 2;
@@ -61,7 +66,7 @@ int main(){
 		// embedded double quote is doubled per RFC-4180
 		if(out.find("\"write \"\"hot\"\"\"") == std::string::npos) return 4;
 		// a numeric field made it through
-		if(out.find(",1000,") == std::string::npos) return 5;
+		if(out.find(",2,5,1000,") == std::string::npos) return 5;
 	}
 
 	// ---- JSON ---------------------------------------------------------------
@@ -84,9 +89,11 @@ int main(){
 		// comma inside the name is preserved verbatim (not a structural comma)
 		if(out.find("read,heavy") == std::string::npos) return 10;
 		// all fields present
-		for(const char* k : {"\"warmup\":", "\"sample\":", "\"x\":",
+		for(const char* k : {"\"metric\":", "\"unit\":", "\"direction\":",
+				"\"warmup\":", "\"sample\":", "\"x\":",
 				"\"mean_runtime\":", "\"std_runtime\":",
-				"\"mean_throughput\":", "\"std_throughput\":"}){
+				"\"mean_throughput\":", "\"std_throughput\":",
+				"\"mean_metric\":", "\"std_metric\":"}){
 			if(count(out, k) != 2) return 11;
 		}
 	}

@@ -18,14 +18,15 @@ int main() {
         bench::name{"sum"},
         counts,
         bench::warmup{3}, bench::sample{20},
+        bench::unit{bench::units::MiB / bench::units::s},
         // generic body: invoked once per type with that type bound to T
-        [&]<class T>(std::size_t /*idx*/, std::size_t n) -> double {
+        [&]<class T>(std::size_t /*idx*/, std::size_t n) {
             const std::vector<T> data = bench::util::get_test_data<T>(n, 42);
             long double acc = 0;
             for (std::size_t i = 0; i < n; ++i)
                 acc += static_cast<long double>(data[i]);
             volatile long double sink = acc; (void)sink;
-            return static_cast<double>(n * sizeof(T)); // bytes moved
+            return n * sizeof(T) * bench::units::B; // typed bytes moved
         });
 }
 ```
@@ -46,8 +47,11 @@ the active sink prints the rows: `sum/unsigned char`, `sum/unsigned int`,
   internal `static_for`, specializing the body per type with zero runtime
   dispatch.
 - **Order-independent named arguments.** Pass `bench::name`, `bench::arg_x`,
-  `bench::warmup`, and `bench::sample` in any order; each is a distinct tag
-  type matched by type, not by position.
+  `bench::warmup`, `bench::sample`, and `bench::unit` in any order; each is a
+  distinct tag type matched by type, not by position.
+- **Typed metric vocabulary.** `bench::runtime`, `bench::throughput`,
+  `bench::rate`, and `bench::latency` derive unit-aware metrics from the same
+  timing loop and carry report metadata.
 - **Pluggable sinks.** Results render to stdout (default), CSV
   (`bench::csv_sink`), or JSON (`bench::json_sink`) — install one with
   `bench::set_sink(...)`; the store flushes through it at teardown.
@@ -62,7 +66,7 @@ The opt-in SVG sink colours each `(type, size)` cell by mean throughput.
 The image below was produced by `examples/svg_sink.cpp` over
 `<int, float, double>` across four sizes:
 
-@image html benchmark_heatmap.svg "bench::svg_sink — mean MB/s per (type, size) cell" width=480px
+@image html benchmark_heatmap.svg "bench::svg_sink — mean metric per (type, size) cell" width=480px
 
 # Sinks at a glance
 

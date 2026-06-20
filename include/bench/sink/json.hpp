@@ -28,19 +28,27 @@ namespace bench {
 			emitted_ = true;
 			os_ << '[';
 			for(std::size_t i = 0; i < rows_.size(); ++i){
-				const result_t& r = rows_[i];
-				if(i) os_ << ',';
-				os_ << "{\"name\":\"";
-				escape(r.name);
-				os_ << "\",\"warmup\":"        << r.warmup
-					<< ",\"sample\":"          << r.sample
-					<< ",\"x\":"               << r.x
-					<< ",\"mean_runtime\":"    << r.mean_runtime
-					<< ",\"std_runtime\":"     << r.std_runtime
-					<< ",\"mean_throughput\":" << r.mean_throughput
-					<< ",\"std_throughput\":"  << r.std_throughput
-					<< '}';
-			}
+					const result_t& r = rows_[i];
+					if(i) os_ << ',';
+					os_ << "{\"name\":\"";
+					escape(r.name);
+					os_ << "\",\"metric\":\"";
+					escape(r.metric);
+					os_ << "\",\"unit\":\"";
+					escape(r.unit);
+					os_ << "\",\"direction\":\"";
+					escape(direction_name(r.direction).data());
+					os_ << "\",\"warmup\":"        << r.warmup
+						<< ",\"sample\":"          << r.sample
+						<< ",\"x\":"               << r.x
+						<< ",\"mean_runtime\":"    << r.mean_runtime
+						<< ",\"std_runtime\":"     << r.std_runtime
+						<< ",\"mean_throughput\":" << r.mean_throughput
+						<< ",\"std_throughput\":"  << r.std_throughput
+						<< ",\"mean_metric\":"     << r.mean_metric
+						<< ",\"std_metric\":"      << r.std_metric
+						<< '}';
+				}
 			os_ << ']';
 			os_.flush();
 		}

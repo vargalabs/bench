@@ -31,7 +31,7 @@ int main() {
 		counts,
 		bench::warmup{3}, bench::sample{20},
 		// generic body: invoked once per type with that type bound to T.
-		[&]<class T>(std::size_t /*idx*/, std::size_t n) -> double {
+		[&]<class T>(std::size_t /*idx*/, std::size_t n) {
 			// Deterministic, reproducible input of n elements of T.
 			const std::vector<T> data = bench::util::get_test_data<T>(n, /*seed=*/42);
 
@@ -44,7 +44,7 @@ int main() {
 			(void)sink;
 
 			// Bytes read for this (type, size) point.
-			return static_cast<double>(n * sizeof(T));
+			return n * sizeof(T) * bench::units::B;
 		});
 
 	// At program exit the table prints rows: sum/unsigned char, sum/unsigned int,

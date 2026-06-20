@@ -27,14 +27,14 @@ int main(){
 		bench::name{"sum"},
 		sizes,
 		bench::warmup{2}, bench::sample{10},
-		[&]<class T>(std::size_t /*idx*/, std::size_t n) -> double {
+		[&]<class T>(std::size_t /*idx*/, std::size_t n) {
 			const std::size_t bytes = n * sizeof(T);
 			const T* data = reinterpret_cast<const T*>(buf.data());
 			const std::size_t count = buf.size() / sizeof(T);
 			volatile T acc = T{};
 			for(std::size_t i = 0; i < n; ++i) acc += data[i % count];
 			(void)acc;
-			return static_cast<double>(bytes);
+			return bytes * bench::units::B;
 		});
 
 	// the sink renders report.svg when bench::store_t is torn down at exit.

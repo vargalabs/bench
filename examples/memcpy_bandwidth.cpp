@@ -24,12 +24,12 @@ int main() {
     constexpr std::size_t max_bytes = 16 * 1024 * 1024;
     bench::arg_x sizes{ 4*1024, 64*1024, 1*1024*1024, max_bytes };
     bench::throughput<types>(
-        bench::name{"memcpy"}, sizes, bench::warmup{5}, bench::sample{50},
-        [&]<class T>(std::size_t /*idx*/, std::size_t n) -> double {
+        bench::name{"memcpy"}, sizes, bench::warmup{5}, bench::sample{50}, bench::unit{bench::units::MiB / bench::units::s},
+        [&]<class T>(std::size_t /*idx*/, std::size_t n) {
             static std::vector<T> src(max_bytes/sizeof(T), T{1}), dst(src.size());
             std::memcpy(dst.data(), src.data(), n);
             volatile T sink = dst[n/sizeof(T) - 1]; (void)sink;
-            return static_cast<double>(2 * n);
+            return (2 * n) * bench::units::B;
         });
     return 0;
 }

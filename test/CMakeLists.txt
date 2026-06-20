@@ -6,6 +6,10 @@ add_executable(type_dispatch type_dispatch.cpp)
 target_link_libraries(type_dispatch PRIVATE bench)
 add_test(NAME type_dispatch COMMAND type_dispatch)
 
+add_executable(metric_actions metric_actions.cpp)
+target_link_libraries(metric_actions PRIVATE bench)
+add_test(NAME metric_actions COMMAND metric_actions)
+
 add_executable(util util.cpp)
 target_link_libraries(util PRIVATE bench)
 add_test(NAME util COMMAND util)

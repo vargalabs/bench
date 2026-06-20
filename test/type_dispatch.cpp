@@ -27,14 +27,14 @@ int main() {
 		bench::before_sample{ [&]{ ++before_calls; } },
 		bench::after_sample{  [&]{ ++after_calls;  } },
 		bench::name{"typed"},
-		[&]<class T>(std::size_t /*idx*/, std::size_t n) -> double {
+		[&]<class T>(std::size_t /*idx*/, std::size_t n) {
 			const std::size_t bytes = n * sizeof(T);
 			volatile T acc = T{};
 			const T* data = reinterpret_cast<const T*>(buf.data());
 			const std::size_t count = buf.size() / sizeof(T);
 			for (std::size_t i = 0; i < n; ++i) acc += data[i % count];
 			(void)acc;
-			return static_cast<double>(bytes);
+			return bytes * bench::units::B;
 		});
 
 	const auto& r = bench::store_t::get().results();
@@ -55,6 +55,8 @@ int main() {
 		if (row.warmup != wu || row.sample != su) return 8;
 		const std::string_view nm(row.name);
 		if (nm.find("typed/") != 0) return 9;       // name prefix + type suffix
+		if (std::string_view(row.metric) != "throughput") return 11;
+		if (std::string_view(row.unit) != "MiB/s") return 12;
 	}
 
 	// each declared type appears in at least one row label
